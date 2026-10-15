@@ -52,7 +52,7 @@ FRIENDLY_QUEUE_MAX = 20
 FRIENDLY_EXTRA_INSTRUCTIONS = ''
 LANG_FALLBACK_APOLOGY = 'Xin lỗi, hiện chúng tôi chỉ hỗ trợ tiếng Việt nên xin phép trả lời bạn bằng tiếng Việt.'
 CLARIFY_MAX = 2
-MEMORY_DEFAULT_MODE = 'auto'
+MEMORY_DEFAULT_MODE = 'explicit'
 MEMORY_MAX_ITEMS = 50
 SUMMARY_TRIGGER = 0.6
 GUARDRAILS = SEED_GUARDRAILS
@@ -68,6 +68,9 @@ RETRIEVAL_CANDIDATES = 15
 RERANK_MIN_SCORE = -3.0
 CHUNK_CHARS = 900
 EVIDENCE_CHARS = 700
+WEBSEARCH_RESULTS = 5      # nút "Tìm web": số kết quả DuckDuckGo gửi cho AI
+WEBSEARCH_TIMEOUT = 8      # giây
+WEBSEARCH_MODEL = 'qwen3:4b-instruct-2507-q4_K_M'
 KB_NOT_FOUND_MESSAGE = 'Thông tin này không có trong các bộ dữ liệu đang bật nên chúng tôi không thể trả lời. Bạn có thể hỏi cụ thể hơn về nội dung trong dữ liệu, hoặc tắt bộ dữ liệu để trò chuyện chung.'
 EMBED_MODEL = 'bge-m3'
 TRACE_KEEP = 1000
@@ -81,6 +84,7 @@ GREETING_MAX_WORDS = 4
 GREETING_WORDS = 'xin chào|chào|hello|hi|hey|alo|cảm ơn|cám ơn|thank|thanks|tks|tạm biệt|bye|goodbye|hẹn gặp lại|chúc ngủ ngon|good night|good morning|ok|oke|okay|vâng|dạ|tuyệt'
 GROUNDING_CHECK = 'rewrite'
 AMBIGUITY_CHECK = True
+CHOICE_CHECK = True
 AMBIGUITY_MAX = 5
 TABLE_TOOL = True
 SEARCH_FOLLOWUP = True
@@ -133,6 +137,10 @@ SETTINGS = [
          help="Đoạn có điểm thấp hơn bị coi là không liên quan. Cao hơn = khắt khe hơn (dễ trả lời 'không có trong dữ liệu')."),
     dict(key="CHUNK_CHARS", type="int", group="Dữ liệu (Chuyên gia)", label="Độ dài mỗi đoạn văn bản (ký tự)", min=200, max=4000,
          help="Chỉ áp dụng cho tệp tải lên sau khi đổi."),
+    dict(key="WEBSEARCH_RESULTS", type="int", group="Dữ liệu (Chuyên gia)", label="Tìm web: số kết quả DuckDuckGo", min=1, max=10),
+    dict(key="WEBSEARCH_MODEL", type="str", group="Dữ liệu (Chuyên gia)", label="Tìm web (Strict): model tóm tắt kết quả web",
+         help="Chọn model KHÔNG suy nghĩ (vd. qwen3:4b-instruct-2507-q4_K_M). qwen3:4b hay viết suy luận vào câu trả lời; nếu khác \"Model dùng chung\" thì Ollama đổi model nên chậm thêm vài giây."),
+    dict(key="WEBSEARCH_TIMEOUT", type="int", group="Dữ liệu (Chuyên gia)", label="Tìm web: chờ tối đa (giây)", min=2, max=30),
     dict(key="EVIDENCE_CHARS", type="int", group="Dữ liệu (Chuyên gia)", label="Độ dài mỗi đoạn gửi cho AI (ký tự)", min=200, max=4000,
          help="Ngắn hơn = trả lời nhanh hơn nhưng có thể thiếu chi tiết."),
     dict(key="KB_NOT_FOUND_MESSAGE", type="text", group="Dữ liệu (Chuyên gia)", label="Câu trả lời khi dữ liệu không có thông tin",
@@ -144,7 +152,7 @@ SETTINGS = [
     dict(key="FRIENDLY_MODEL", type="str", group="AI (Friendly)", label="Model dùng chung (Strict + Friendly)",
          help="Chọn trong danh sách model đã có trong Ollama. Dùng cho Friendly (trả lời nhanh, bộ nhớ, tóm tắt) VÀ bước LLM của Strict, nên đổi qua lại hai chế độ không phải nạp lại model. Gợi ý: qwen3:4b-instruct-2507-q4_K_M (không suy nghĩ)."),
     dict(key="THINK_MODEL", type="str", optional=True, group="AI (Friendly)", label="Model Suy nghĩ kỹ (cho Friendly mode)",
-         help="Model cho \"Suy nghĩ kỹ\" (phải biết suy nghĩ, vd. qwen3:4b). Để trống = dùng model trả lời nhanh."),
+         help="Model cho \"Suy nghĩ kỹ\" (phải biết suy nghĩ, vd. qwen3:4b). Để trống = dùng model trả lời nhanh. Khác model trả lời thì card 6 GB chỉ chứa được một, mỗi lần đổi qua lại Ollama nạp lại khoảng 7 giây (đo: eval/measure_ollama_reload.py)."),
     dict(key="DEFAULT_ANSWER_MODE", type="choice", choices=["fast", "think"], group="AI (Friendly)",
          label="Chế độ trả lời mặc định",
          help="fast = trả lời nhanh (~1-3 giây, không suy nghĩ). think = suy nghĩ kỹ (~30 giây). Người dùng vẫn bật/tắt "
@@ -182,6 +190,8 @@ SETTINGS = [
               "của doanh nghiệp không có trong mô tả) -> AI viết lại một lần, được báo rõ chi tiết nào không có. Chỉ tốn thêm 2-4 giây khi bắt được."),
     dict(key="AMBIGUITY_CHECK", type="bool", group="Tốc độ & độ chính xác", label="Hỏi lại khi trùng tên",
          help="Bật: tên được hỏi khớp 2 đến N bản ghi trong một bảng (vd. hai bạn tên An) -> hỏi \"Bạn muốn hỏi về mục nào?\" kèm nút họ tên đầy đủ."),
+    dict(key="CHOICE_CHECK", type="bool", group="Tốc độ & độ chính xác", label="Lọc nút gợi ý theo dữ liệu",
+         help="Bật: nút lựa chọn do AI nghĩ ra chỉ hiện nếu bộ dữ liệu đang bật có đoạn khớp (mỗi nút tốn thêm một lần tìm, khoảng 0,5-2 giây tuỳ máy). Tắt: hiện mọi nút AI đưa."),
     dict(key="AMBIGUITY_MAX", type="int", group="Tốc độ & độ chính xác", label="Trùng tên: tối đa N bản ghi", min=2, max=10,
          help="Khớp nhiều hơn số này thì coi là từ chung (vd. \"giấy phép\"), không hỏi lại."),
     dict(key="TABLE_TOOL", type="bool", group="Tốc độ & độ chính xác", label="Công cụ bảng (đếm / tổng / liệt kê)",

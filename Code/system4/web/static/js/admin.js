@@ -21,6 +21,7 @@
     return d;
   }
   const fmtSize = (b) => (b < 1048576 ? Math.max(1, Math.round(b / 1024)) + " KB" : (b / 1048576).toFixed(1) + " MB");
+  const ROLES = { user: "Người dân", can_bo: "Cán bộ", dev: "Dev" };
   const SRC = { original: "Gốc", edit: "Sửa tay", scrape: "Cào" };
   const row = (cells, cls) => { const tr = el("tr", cls || ""); cells.forEach((c) => { const td = el("td"); if (c instanceof Node) td.appendChild(c); else td.textContent = c == null ? "" : String(c); tr.appendChild(td); }); return tr; };
   const head = (t, cols) => { t.innerHTML = ""; const tr = el("tr"); cols.forEach((c) => tr.appendChild(el("th", "", c))); t.appendChild(tr); };
@@ -31,7 +32,7 @@
     t.onclick = () => {
       document.querySelectorAll(".admin-tabs .tab").forEach((x) => x.classList.toggle("active", x === t));
       document.querySelectorAll(".admin-tab").forEach((s) => { s.hidden = s.id !== "tab-" + t.dataset.tab; });
-      ({ strict: loadProcs, datasets: loadDatasets, users: loadUsers, lab: loadLab })[t.dataset.tab]();
+      ({ strict: loadProcs, datasets: loadDatasets, users: loadUsers, lab: loadLab, stats: loadStats })[t.dataset.tab]();
     };
   });
   document.querySelectorAll(".s4-modal").forEach((m) => {
@@ -55,6 +56,8 @@
       if (v.id === P.original_id) name.appendChild(span("gốc", "tag"));
       const act = el("div");
       act.appendChild(btn("Xem", () => { procView.version = String(v.id); fillVersionSelect(); loadProcList(true); $("procs").scrollIntoView({ behavior: "smooth" }); }));
+      act.appendChild(btn("Xuất Excel", (b) => exportXlsx(v.id === P.active_id ? "active" : String(v.id), b), "btn-ghost",
+        v.id === P.active_id ? "Tải DB đang dùng thành tệp Excel" : "Dựng DB tạm từ phiên bản này rồi tải thành tệp Excel (~1-2 phút, không đổi bản đang dùng)"));
       if (v.id !== P.active_id) {
         act.appendChild(btn("So sánh", () => showDiff(String(P.active_id), String(v.id), "Bản đang dùng → phiên bản " + v.id)));
         act.appendChild(btn("Áp dụng", () => applyVersion(v), "primary", "Strict mode chuyển sang phiên bản này"));
@@ -199,6 +202,22 @@
     if (!confirm(`Strict mode sẽ chuyển sang phiên bản ${v.id} (${v.label}, ${v.n_records} thủ tục). Dựng lại DB mất khoảng 1 phút. Tiếp tục?`)) return;
     try { renderJob((await api("/s4/admin/procs/apply", { version_id: v.id })).job); } catch (e) { alert(e.message); }
   }
+  /* Xuất Excel: version = "active" (DB đang dùng, ~20 giây) hoặc id phiên bản đã lưu (dựng DB tạm, ~1-2 phút) */
+  async function exportXlsx(version, b) {
+    const label = b.textContent;
+    b.disabled = true; b.textContent = version === "active" ? "Đang xuất… (~20 giây)" : "Đang dựng + xuất… (~1-2 phút)";
+    try {
+      const res = await fetch("/s4/admin/procs/export.xlsx?version=" + encodeURIComponent(version));
+      if (res.status === 401) { location.href = "/s4/login"; return; }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(typeof d.detail === "string" ? d.detail : res.statusText); }
+      const name = (/filename="?([^";]+)"?/.exec(res.headers.get("Content-Disposition") || "") || [])[1] || "du_lieu_strict.xlsx";
+      const url = URL.createObjectURL(await res.blob());
+      const a = el("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (e) { alert("Xuất Excel lỗi: " + e.message); }
+    finally { b.disabled = false; b.textContent = label; }
+  }
+  $("export-btn").onclick = () => exportXlsx("active", $("export-btn"));
   $("scrape-btn").onclick = async () => {
     const limit = parseInt($("scrape-limit").value || "0", 10) || 0;
     if (!confirm((limit ? `Cào thử ${limit} thủ tục` : "Cào toàn bộ thủ tục cấp Xã/Phường (khoảng 1.350, tải vài chục MB, có thể mất hàng chục phút)") + " từ dichvucong.gov.vn? Cần internet. Kết quả thành một phiên bản mới, CHƯA áp dụng.")) return;
@@ -285,7 +304,7 @@
     const t = $("users"); head(t, ["Tên", "Vai trò", "Trạng thái", "Hội thoại", "Dữ liệu", "Bộ nhớ", "Tạo lúc (UTC)", ""]);
     users.forEach((u) => {
       const role = el("select");
-      ["user", "dev"].forEach((x) => { const o = el("option", "", x); o.value = x; o.selected = u.role === x; role.appendChild(o); });
+      Object.entries(ROLES).forEach(([x, name]) => { const o = el("option", "", name); o.value = x; o.selected = u.role === x; role.appendChild(o); });
       role.onchange = () => patch(u, { role: role.value }, () => { role.value = u.role; });
       const st = span(u.disabled ? "đã khoá" : "hoạt động", u.disabled ? "tag bad" : "tag on");
       const act = el("div");
@@ -312,6 +331,18 @@
     try { const r = await api("/s4/admin/users", { username: f.username.value.trim(), password: f.password.value, role: f.role.value }); f.reset(); renderUsers(r.users); }
     catch (err) { alert(err.message); }
   });
+
+  /* ================= Thống kê ================= */
+  async function loadStats() {
+    let r; try { r = await api("/s4/admin/stats"); } catch (e) { alert(e.message); return; }
+    const t = $("stat-procs"); head(t, ["#", "Thủ tục", "Số lần", "Gần nhất (UTC)"]);
+    r.procedures.forEach((p, i) => t.appendChild(row([i + 1, p.label + " (" + p.proc_id + ")", p.n, p.last_at])));
+    if (!r.procedures.length) t.appendChild(row(["", "Chưa có dữ liệu", "", ""]));
+    const o = $("stat-other"); head(o, ["Mục", "Số lượng"]);
+    o.appendChild(row(["Friendly 👍 / 👎", r.feedback.friendly.up + " / " + r.feedback.friendly.down]));
+    o.appendChild(row(["Strict 👍 / 👎", r.feedback.strict.up + " / " + r.feedback.strict.down]));
+    Object.entries(ROLES).forEach(([k, name]) => o.appendChild(row(["Tài khoản " + name, r.roles[k] || 0])));
+  }
 
   /* ================= Hội thoại của người dùng (chỉ xem) + 🔍 ================= */
   async function openUserConvs(u) {

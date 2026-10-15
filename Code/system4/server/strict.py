@@ -24,6 +24,7 @@ RESET_TEXT = "Đã bắt đầu chủ đề mới"
 class StrictChatIn(BaseModel):
     text: str
     root: str | None = None
+    websearch: bool = False
     reply_to: int | None = None   # nút thẻ hỏi lại (tin trợ lý cuối) mà người dùng bấm lựa chọn
 
 
@@ -119,11 +120,13 @@ def make_router(app, s3_store) -> APIRouter:
             raise HTTPException(resp.status_code, detail or "System 3 lỗi")
         return resp.json()
 
-    async def send(request: Request, cid: str | None, text: str, reply_mid: int | None) -> tuple[str, int, int]:
+    async def send(request: Request, cid: str | None, text: str, reply_mid: int | None, web: bool = False) -> tuple[str, int, int]:
         """Gửi một câu cho System 3. Trả (hội thoại, id tin người dùng, id tin trợ lý)."""
         body = {"text": text, "conversation_id": cid}
         if reply_mid:
             body["reply_to"] = reply_mid
+        if web:
+            body["websearch"] = True
         res = await s3(request, "POST", "/chat", body)
         cid, amid = res["conversation_id"], res["message_id"]
         umid = max(m["id"] for m in s3_store.get_messages(cid) if m["role"] == "user" and m["id"] < amid)
@@ -151,6 +154,8 @@ def make_router(app, s3_store) -> APIRouter:
 
     @r.post("/chat")
     async def chat(body: StrictChatIn, request: Request):
+        if not db.can_use_domain(request.state.user, db.get_domain(1)):
+            raise HTTPException(403, "Lĩnh vực Thủ tục đang khoá: chỉ dev và cán bộ dùng được")
         text = body.text.strip()
         if not text:
             raise HTTPException(422, "text rỗng")
@@ -162,7 +167,7 @@ def make_router(app, s3_store) -> APIRouter:
         reply_mid = None
         if body.reply_to and leaf and body.reply_to == leaf["id"] and leaf["role"] == "assistant":
             reply_mid = leaf["s3_mid"]   # chỉ thẻ hỏi lại cuối cùng bấm được (như System 3)
-        cid, umid, amid = await send(request, leaf["s3_cid"] if leaf else None, text, reply_mid)
+        cid, umid, amid = await send(request, leaf["s3_cid"] if leaf else None, text, reply_mid, body.websearch)
         root = root or cid
         un = _add(root, leaf["id"] if leaf else None, "user", cid, umid, replied=bool(reply_mid))
         an = _add(root, un, "assistant", cid, amid)
@@ -259,6 +264,10 @@ def make_router(app, s3_store) -> APIRouter:
         if not n or n["root"] != root or n["role"] != "assistant" or body.value not in (-1, 0, 1):
             raise HTTPException(422, "chỉ đánh giá câu trả lời, giá trị 1/-1/0")
         db.run("UPDATE strict_nodes SET feedback=? WHERE id=?", (body.value, n["id"]))
+        a = s3_message(n["s3_cid"], n["s3_mid"])
+        par = _node(n["parent_id"]) if n["parent_id"] else None
+        q = s3_message(par["s3_cid"], par["s3_mid"]) if par else None
+        db.log_feedback("strict", n["id"], request.state.user["id"], 1, root, q["content"] if q else "", a["content"] if a else "", body.value)
         return {"ok": True}
 
     @r.delete("/{root}")

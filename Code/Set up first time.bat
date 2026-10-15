@@ -5,7 +5,7 @@ rem Needs internet ONLY here. After setup everything runs offline.
 rem Total download the first time: about 11.5 GB (packages ~3 GB incl. GPU torch, models ~8.5 GB).
 set "REPO=%~dp0"
 set "REPO=%REPO:~0,-1%"
-for %%I in ("%REPO%\..") do set "PYROOT=%%~fI\pyroot_merge"
+for %%I in ("%REPO%\..") do set "PYROOT=%%~fI\pyroot"
 cd /d "%REPO%"
 
 echo [1/9] Creating Python environment (.venv)...

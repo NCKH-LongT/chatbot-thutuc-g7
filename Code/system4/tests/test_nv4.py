@@ -103,6 +103,8 @@ with TestClient(main.app) as c:
     assert p[-1]["content"].startswith("Đã bắt đầu chủ đề mới")
     assert c.post(f"/s4/strict/{root}/feedback", json={"node_id": p[1]["node_id"], "value": 1}).status_code == 200
     assert c.get(f"/s4/strict/{root}/messages").json()["messages"][1]["feedback"] == 1
+    fl = db.run("SELECT prompt,answer,value FROM feedback_log WHERE engine='strict' AND msg_key=?", (str(p[1]["node_id"]),), many=True)
+    assert len(fl) == 1 and fl[0]["value"] == 1 and fl[0]["prompt"] and fl[0]["answer"], fl
     md = c.get(f"/s4/strict/{root}/export?format=md")
     assert md.status_code == 200 and "khai sinh" in md.text.lower()
     # tạo lại sau "chủ đề mới": phát lại cả lệnh chủ đề mới
@@ -179,6 +181,35 @@ with TestClient(main.app) as c:
     assert r["diff"] == {"added": 0, "removed": 1, "changed": 1}
     assert c.get("/s4/admin/procs").json()["draft"]["changes"] == 0
     assert c.delete(f"/s4/admin/procs/versions/{v0}").status_code == 422, "không xoá bản Gốc"
+
+    # ---------------- Xuất Excel DB thủ tục đang dùng (chỉ dev)
+    as_user("anna")
+    assert c.get("/s4/admin/procs/export.xlsx").status_code == 403
+    as_user("boss")
+    r = c.get("/s4/admin/procs/export.xlsx")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("application/vnd.openxmlformats"), r.text[:200]
+    assert ".xlsx" in r.headers["content-disposition"]
+    import io
+    import openpyxl
+    xb = openpyxl.load_workbook(io.BytesIO(r.content))
+    assert xb.sheetnames[:3] == ["README", "Procedures", "Documents"] and "Versions" in xb.sheetnames, xb.sheetnames
+    xp = xb["Procedures"]
+    assert xp.max_row - 1 == n_procs() and xp["D2"].value.startswith("https://dichvucong.gov.vn/"), xp["D2"].value
+    assert xp["E2"].value.startswith("=COUNTIF('Documents'!$B$2"), xp["E2"].value
+    assert xb["Documents"]["C2"].value.startswith("=INDEX(Procedures!$B$2"), "proc_id lấy qua row_id bằng công thức"
+    assert xb["Documents"].max_row - 1 == sqlite3.connect(DATA_COPY).execute("SELECT COUNT(*) FROM checklist_items").fetchone()[0]
+    # phiên bản đã lưu (không phải bản đang dùng): dựng DB tạm từ .jsonl của nó, DB đang dùng không đổi
+    assert c.get("/s4/admin/procs/export.xlsx?version=abc").status_code == 422
+    assert c.get("/s4/admin/procs/export.xlsx?version=999").status_code == 404
+    n_before = n_procs()
+    r = c.get(f"/s4/admin/procs/export.xlsx?version={v1}")
+    assert r.status_code == 200, r.text[:300]
+    assert f"_v{v1}_" in r.headers["content-disposition"]
+    xb = openpyxl.load_workbook(io.BytesIO(r.content))
+    assert xb["Procedures"].max_row - 1 == 1349, "phiên bản v1 = Gốc bớt 1 thủ tục"
+    assert any("NOT the version Strict mode uses now" in str(x.value) for x in xb["README"]["A"])
+    assert [x.value or "" for x in xb["Versions"]["H"]][1:] == ["yes" if v["id"] == v1 else "" for v in sorted(procs.versions(), key=lambda x: x["id"])]
+    assert n_procs() == n_before and procs.active_id() == v0, "xuất không đổi DB / bản đang dùng"
 
     # ---------------- Áp dụng (dựng DB thật bằng system3.data.build, trên bản sao)
     assert n_procs() == 1350

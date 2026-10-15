@@ -1,11 +1,16 @@
 """Trang Quản trị (NV4) — chỉ dev. Ba tab: Dữ liệu Strict (thủ tục của System 3), Dữ liệu người dùng, Người dùng."""
 from __future__ import annotations
 
+import shutil
+import tempfile
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
+from starlette.background import BackgroundTask
 
-from . import auth, chat, config, datasets, db, guard, llm, persona, procs, search
+from . import auth, chat, config, datasets, db, guard, llm, persona, procs, procs_xlsx, search
 
 
 class NewUser(BaseModel):
@@ -86,6 +91,24 @@ def make_router(s3_store) -> APIRouter:
     def other_active_devs(uid: int) -> int:
         return db.run("SELECT COUNT(*) n FROM users WHERE role='dev' AND disabled=0 AND id<>?", (uid,), one=True)["n"]
 
+    @r.get("/stats")
+    def stats(request: Request, limit: int = 20):
+        """Thống kê: thủ tục Strict được trả lời nhiều nhất, số 👍/👎, số tài khoản theo loại."""
+        dev(request)
+        fb = lambda t: {k: db.run(f"SELECT COUNT(*) n FROM {t} WHERE feedback=?", (v,), one=True)["n"] for k, v in (("up", 1), ("down", -1))}
+        return {"procedures": s3_store.top_procs(max(1, min(limit, 200))),
+                "feedback": {"friendly": fb("messages"), "strict": fb("strict_nodes")},
+                "roles": {x["role"]: x["n"] for x in db.run("SELECT role, COUNT(*) n FROM users GROUP BY role", many=True)}}
+
+    @r.get("/feedback")
+    def feedback_export(request: Request, value: int = 0, limit: int = 500):
+        """Các cặp (câu hỏi, câu trả lời) đã được 👍 (value=1) hoặc 👎 (value=-1); 0 = cả hai. Dùng để rà lỗi / làm dữ liệu fine-tune."""
+        dev(request)
+        where, args = ("WHERE value=?", (value,)) if value in (1, -1) else ("", ())
+        rows = db.run(f"SELECT engine,domain_id,conversation_id,prompt,answer,value,created_at FROM feedback_log {where} ORDER BY id DESC LIMIT ?",
+                      (*args, max(1, min(limit, 5000))), many=True)
+        return {"count": len(rows), "items": rows}
+
     @r.get("/users")
     def users(request: Request):
         dev(request)
@@ -94,8 +117,8 @@ def make_router(s3_store) -> APIRouter:
     @r.post("/users")
     def create_user(body: NewUser, request: Request):
         dev(request)
-        if body.role not in ("dev", "user"):
-            raise HTTPException(422, "Vai trò phải là dev hoặc user")
+        if body.role not in db.ROLES:
+            raise HTTPException(422, "Vai trò phải là dev, can_bo hoặc user")
         e = auth.check_new_account(body.username.strip(), body.password)
         if e:
             raise HTTPException(422, e)
@@ -116,8 +139,8 @@ def make_router(s3_store) -> APIRouter:
         if losing_dev and other_active_devs(uid) == 0:
             raise HTTPException(422, "Phải còn ít nhất một tài khoản dev đang hoạt động")
         if body.role is not None:
-            if body.role not in ("dev", "user"):
-                raise HTTPException(422, "Vai trò phải là dev hoặc user")
+            if body.role not in db.ROLES:
+                raise HTTPException(422, "Vai trò phải là dev, can_bo hoặc user")
             db.run("UPDATE users SET role=? WHERE id=?", (body.role, uid))
         if body.disabled is not None:
             db.run("UPDATE users SET disabled=? WHERE id=?", (1 if body.disabled else 0, uid))
@@ -317,6 +340,41 @@ def make_router(s3_store) -> APIRouter:
         procs_ready()
         err(procs.scrape, max(0, body.limit))
         return {"job": procs.job()}
+
+    @r.get("/procs/export.xlsx")
+    def export_xlsx(request: Request, version: str = "active"):
+        """Xuất DB thủ tục ra Excel (procs_xlsx). version = "active" (DB Strict đang dùng, chụp sang tệp tạm nên "Áp dụng"
+        vẫn thay được DB; ~20 s) hoặc id một phiên bản đã lưu (dựng DB tạm từ tệp .jsonl của nó; thêm ~1 phút)."""
+        dev(request)
+        procs_ready()
+        j = procs.job()
+        if j["state"] == "running" and j["kind"] == "apply":
+            raise HTTPException(409, "Đang áp dụng phiên bản, hãy đợi xong rồi xuất")
+        active = procs.active_id()
+        try:
+            vid = active if version in ("", "active") else int(version)
+        except ValueError:
+            raise HTTPException(422, "version phải là 'active' hoặc số phiên bản") from None
+        vers = procs.versions()
+        v = next((x for x in vers if x["id"] == vid), None)
+        if not v:
+            raise HTTPException(404, f"không có phiên bản {vid}")
+        if vid == active:
+            src, where = Path(procs._s3_data().DB_PATH), "data/runtime/system3.db (the database Strict mode answers from right now)"
+        else:
+            src, where = procs.VERSIONS / f"{vid}.jsonl", (f"saved version {vid} (system4/runtime/procs/versions/{vid}.jsonl), "
+                                                          "built into a temporary database with system3.data.build")
+        tmp = Path(tempfile.mkdtemp(prefix="s4_export_"))
+        try:
+            out = tmp / procs_xlsx.filename(vid)
+            res = procs_xlsx.export_file(src, out, vers, vid, active, where)
+            if vid != active and res["procedures"] != v["n_records"]:
+                raise HTTPException(500, f"DB dựng ra có {res['procedures']} thủ tục, phiên bản ghi {v['n_records']}: không xuất")
+        except Exception:
+            shutil.rmtree(tmp, ignore_errors=True)
+            raise
+        return FileResponse(out, filename=out.name, background=BackgroundTask(shutil.rmtree, tmp, ignore_errors=True),
+                            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     @r.get("/procs/job")
     def job(request: Request):

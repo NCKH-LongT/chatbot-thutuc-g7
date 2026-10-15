@@ -8,8 +8,10 @@
   const box = $("messages");
   let me = null, pub = {}, cfg = {};
   let mode = "strict";
+  let domains = [], domainId = 2;   // domain đang dùng (domain 1 = Thủ tục = Strict/System 3)
   let convId = null;
   let sending = false, abortCtl = null;
+  let webOn = false;   // nút "Tìm web" (chỉ DuckDuckGo, không qua bộ dữ liệu); chỉ giữ trong phiên trang
   let thinkOn = false;   // công tắc "Suy nghĩ kỹ" (mặc định tắt = trả lời nhanh)
   let convs = [];
 
@@ -43,18 +45,145 @@
     mode = m === "friendly" ? "friendly" : "strict";
     ls.set("s4_mode", mode);
     document.body.dataset.mode = mode;
-    document.querySelectorAll(".mode-switch button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
     modelName();
-    $("input").placeholder = mode === "friendly" ? "Nhắn cho AI…" : "Nhập câu hỏi về thủ tục…";
+    $("input").placeholder = mode === "friendly" ? "Nhắn trong «" + domainName() + "»…" : "Nhập câu hỏi về thủ tục…";
     $("cfg-panel").hidden = true;
   }
-  document.querySelectorAll(".mode-switch button").forEach((b) => {
-    b.onclick = async () => {
-      if (sending || b.dataset.mode === mode) return;
-      setMode(b.dataset.mode);
-      await loadConv(null);
-      refreshList();
-    };
+
+  /* ---- domain: thanh chọn (ghim) + ô chọn các domain còn lại ---- */
+  const domainName = (id) => { const d = domains.find((x) => x.id === (id == null ? domainId : id)); return d ? d.name : "Friendly"; };
+  function setDomain(id) {
+    const d = domains.find((x) => x.id === id) || domains[0];
+    if (!d) return;
+    domainId = d.id;
+    ls.set("s4_domain", String(domainId));
+    document.body.dataset.domain = String(domainId);
+    setMode(d.engine === "strict" ? "strict" : "friendly");
+    renderDomainBar();
+    $("attach").style.display = d.can_upload ? "" : "none";
+    loadDatasets();
+  }
+  function renderDomainBar() {
+    const bar = $("domain-bar"), more = $("domain-more");
+    bar.innerHTML = ""; more.innerHTML = "";
+    const pinned = domains.filter((d) => d.pinned || d.id === domainId), rest = domains.filter((d) => !pinned.includes(d));
+    pinned.forEach((d) => {
+      const b = el("button", "", d.name); b.type = "button"; b.dataset.domain = String(d.id);
+      b.title = (d.kind === "hard" ? "Lĩnh vực cứng" : "Lĩnh vực mềm") + (d.locked ? " · chỉ cán bộ" : "") + (d.guardrail ? "\nGuardrail: " + d.guardrail : "");
+      b.setAttribute("aria-pressed", String(d.id === domainId));
+      b.onclick = () => switchDomain(d.id);
+      if (d.id !== domainId) {   // dấu × nhỏ: ẩn domain khỏi thanh (vẫn còn trong ô "Khác…" và trang Lĩnh vực)
+        const x = el("span", "dom-x", "×"); x.title = "Ẩn lĩnh vực này khỏi thanh chọn"; x.setAttribute("role", "button");
+        x.onclick = async (e) => {
+          e.stopPropagation();
+          try { domains = (await api("/s4/domains/" + d.id + "/pin", { pinned: false })).domains; renderDomainBar(); } catch (err) { alert(err.message); }
+        };
+        b.appendChild(x);
+      }
+      bar.appendChild(b);
+    });
+    const first = el("option", "", "Khác…"); first.value = ""; more.appendChild(first);
+    rest.forEach((d) => { const o = el("option", "", d.name); o.value = String(d.id); more.appendChild(o); });
+    more.hidden = !rest.length;
+    more.onchange = () => { const v = more.value; more.value = ""; if (v) switchDomain(Number(v)); };
+  }
+  async function switchDomain(id) {
+    if (sending || id === domainId) return;
+    setDomain(id);
+    await loadConv(null);
+    refreshList();
+  }
+  async function loadDomains() {
+    try { domains = (await api("/s4/domains")).domains; } catch (_) { domains = []; }
+    if (!domains.some((d) => d.id === domainId)) domainId = (domains[0] || {}).id || 2;
+    renderDomainBar();
+  }
+
+  /* ---- quản lý domain: xem, ghim, sửa guardrail; dev: loại, khoá, quyền tải ---- */
+  const domOpen = new Set();   // lĩnh vực đang mở bảng dữ liệu (giữ khi vẽ lại danh sách)
+  function renderDomainList() {
+    const ul = $("domain-list"); ul.innerHTML = "";
+    const dev = me && me.role === "dev";
+    $("domain-new-hard").hidden = !dev;
+    domains.forEach((d) => {
+      const li = el("li", "dom-row");
+      const head = el("div", "dom-head");
+      head.append(el("b", "", d.name), el("span", "dom-tag " + d.kind, d.kind === "hard" ? "Cứng" : "Mềm"));
+      if (d.engine === "strict") head.appendChild(el("span", "dom-tag", "System 3"));
+      const dataBox = el("div"); dataBox.hidden = true;
+      const dataBtn = actionBtn("Dữ liệu", "Bộ dữ liệu của lĩnh vực này: tải lên, bật/tắt, xem, xoá", () => showData(dataBox.hidden));
+      const showData = (on) => {
+        if (on) domOpen.add(d.id); else domOpen.delete(d.id);
+        dataBox.hidden = !on;
+        if (on && !dataBox.firstChild) dataBox.appendChild(dataPanel(d));
+        dataBtn.textContent = on ? "Ẩn dữ liệu" : "Dữ liệu";
+      };
+      if (d.locked) head.appendChild(el("span", "dom-tag lock", "Chỉ cán bộ"));
+      if (d.mine) head.appendChild(el("span", "dom-tag", "Của tôi"));
+      head.appendChild(actionBtn(d.pinned ? "Bỏ ghim" : "Ghim", "Hiện / ẩn trên thanh chọn", async () => {
+        try { domains = (await api("/s4/domains/" + d.id + "/pin", { pinned: !d.pinned })).domains; renderDomainBar(); renderDomainList(); } catch (e) { alert(e.message); }
+      }));
+      if (d.can_edit) head.appendChild(actionBtn("Sửa", "Tên, guardrail" + (dev ? ", loại, khoá" : ""), () => { li.querySelector(".dom-edit").hidden = !li.querySelector(".dom-edit").hidden; }));
+      if (d.can_delete) {   // bấm 2 lần để xoá (không dùng confirm(): một số trình duyệt chặn hộp thoại làm nút như không chạy)
+        const del = actionBtn("Xoá", "Xoá lĩnh vực mềm cùng dữ liệu của nó và đưa hội thoại cũ về \"Trò chuyện chung\"", async () => {
+          if (!del.dataset.sure) {
+            del.dataset.sure = "1"; del.textContent = "Bấm lần nữa để xoá";
+            setTimeout(() => { delete del.dataset.sure; del.textContent = "Xoá"; }, 4000);
+            return;
+          }
+          try { domains = (await api("/s4/domains/" + d.id, null, "DELETE")).domains; await afterDomainsChanged(); }
+          catch (e) { del.textContent = "Lỗi: " + e.message; }
+        });
+        head.appendChild(del);
+      }
+      if (d.builtin && d.kind === "soft") head.appendChild(el("span", "dom-tag", "có sẵn, không xoá được"));
+      head.insertBefore(dataBtn, head.querySelector("button"));
+      li.appendChild(head); li.appendChild(dataBox);
+      showData(domOpen.has(d.id));
+      if (d.can_edit) {
+        const ed = el("div", "dom-edit"); ed.hidden = true;
+        const name = el("input"); name.type = "text"; name.value = d.name; name.maxLength = 40; name.disabled = d.engine === "strict";
+        const g = el("textarea"); g.rows = 3; g.maxLength = 1000; g.value = d.guardrail; g.placeholder = "Guardrail: lời dặn gửi thẳng cho AI trước khi trả lời trong lĩnh vực này";
+        ed.append(name, g);
+        const flags = {};
+        if (dev) {
+          [["hard", "Lĩnh vực cứng (dữ liệu dùng chung, không xoá được)", d.kind === "hard", d.engine === "strict"], ["locked", "Khoá: chỉ dev và cán bộ dùng", d.locked, false],
+           ["upload", "Cho người dùng thường tải dữ liệu riêng (lĩnh vực mềm)", d.user_upload, d.engine === "strict"]].forEach(([k, label, on, off]) => {
+            const lab = el("label", "dom-check"), cb = el("input"); cb.type = "checkbox"; cb.checked = on; cb.disabled = off; flags[k] = cb;
+            lab.append(cb, label); ed.appendChild(lab);
+          });
+        }
+        const save = el("button", "primary", "Lưu"); save.type = "button";
+        save.onclick = async () => {
+          const body = { guardrail: g.value };
+          if (d.engine !== "strict") body.name = name.value;
+          if (dev) { body.locked = flags.locked.checked; if (d.engine !== "strict") { body.kind = flags.hard.checked ? "hard" : "soft"; body.user_upload = flags.upload.checked; } }
+          try { domains = (await api("/s4/domains/" + d.id, body, "PATCH")).domains; await afterDomainsChanged(); } catch (e) { alert(e.message); }
+        };
+        ed.appendChild(save); li.appendChild(ed);
+      }
+      ul.appendChild(li);
+    });
+  }
+  async function afterDomainsChanged() {
+    if (!domains.some((d) => d.id === domainId)) { setDomain((domains[0] || {}).id); await loadConv(null); refreshList(); }
+    else { renderDomainBar(); setDomain(domainId); }
+    renderDomainList();
+  }
+  async function openDomainManager(openId) {
+    await loadDomains(); if (openId) domOpen.add(openId);
+    renderDomainList(); $("domain-modal").hidden = false;
+  }
+  $("open-domains").onclick = () => openDomainManager();
+  $("domain-close").onclick = () => { $("domain-modal").hidden = true; };
+  $("domain-modal").addEventListener("click", (e) => { if (e.target === $("domain-modal")) $("domain-modal").hidden = true; });
+  $("domain-new").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    try {
+      const r = await api("/s4/domains", { name: f.name.value, guardrail: f.guardrail.value, kind: f.hard.checked ? "hard" : "soft" });
+      domains = r.domains; f.reset(); renderDomainBar(); renderDomainList();
+    } catch (err) { alert(err.message); }
   });
 
   function modelName() {
@@ -68,7 +197,7 @@
 
   function empty() {
     box.innerHTML = mode === "friendly"
-      ? '<div class="empty"><h2>Mình có thể giúp gì cho bạn?</h2><p>Chế độ Friendly: trò chuyện với AI.</p></div>'
+      ? '<div class="empty"><h2>Mình có thể giúp gì cho bạn?</h2><p>Lĩnh vực: ' + domainName() + '.</p></div>'
       : '<div class="empty"><h2>Bạn cần làm thủ tục gì?</h2>' +
         "<p>Ví dụ: <em>“Làm giấy khai sinh cần giấy tờ gì?”</em></p></div>";
   }
@@ -344,10 +473,10 @@
     const srcs = (m.meta && m.meta.sources) || [];
     if (err) b.textContent = "Lỗi: " + m.content;
     else {
-      const byN = {}; srcs.forEach((s) => { byN[s.n] = s.record_id; });
+      const byN = {}, urlN = {}; srcs.forEach((s) => { byN[s.n] = s.record_id || s.url; if (s.url) urlN[s.n] = s.url; });
       /* [n] -> số nguồn bấm được (chỉ với số có trong danh sách nguồn của câu trả lời) */
-      b.innerHTML = md(m.content).replace(/\[(\d{1,2})\]/g, (all, n) => byN[n] ? '<a class="cite" href="#" data-rec="' + byN[n] + '">' + n + "</a>" : all);
-      b.querySelectorAll("a.cite").forEach((a) => { a.onclick = (e) => { e.preventDefault(); openRecord(+a.dataset.rec); }; });
+      b.innerHTML = md(m.content).replace(/\[(\d{1,2})\]/g, (all, n) => byN[n] ? '<a class="cite" href="' + (urlN[n] ? urlN[n].replace(/"/g, "%22") + '" target="_blank" rel="noopener' : "#") + '" data-rec="' + (urlN[n] ? "" : byN[n]) + '">' + n + "</a>" : all);
+      b.querySelectorAll("a.cite").forEach((a) => { if (a.dataset.rec) a.onclick = (e) => { e.preventDefault(); openRecord(+a.dataset.rec); }; });
     }
     w.appendChild(b);
     const consulted = (m.meta && m.meta.consulted) || [];
@@ -357,7 +486,7 @@
       (srcs.length ? srcs : consulted).forEach((s) => {
         const c = el("button", "src-chip", (s.n ? "[" + s.n + "] " : "") + s.title);
         c.type = "button"; c.title = s.title + " · " + s.dataset;
-        if (s.record_id) c.onclick = () => openRecord(s.record_id); else c.disabled = true;   /* kết quả công cụ bảng: không có bản ghi riêng */
+        if (s.url) c.onclick = () => window.open(s.url, "_blank", "noopener"); else if (s.record_id) c.onclick = () => openRecord(s.record_id); else c.disabled = true;   /* kết quả công cụ bảng: không có bản ghi riêng */
         row.appendChild(c);
       });
       w.appendChild(row);
@@ -483,9 +612,9 @@
       const row = el("div", "conv-item" + (c.id === convId ? " active" : "") + (c.pinned ? " pinned" : ""));
       const b = el("button", "conv-open", (c.pinned ? "📌 " : "") + c.title);
       b.type = "button"; b.title = c.title;
-      b.onclick = async () => { if (sending) return; await loadConv(c.id, c.mode); refreshList(); };
+      b.onclick = async () => { if (sending) return; if (c.domain_id && c.domain_id !== domainId) setDomain(c.domain_id); await loadConv(c.id, c.mode); refreshList(); };
       b.ondblclick = () => renameInline(row, c, b);
-      const tag = el("span", "mode-tag " + c.mode, c.mode === "friendly" ? "Friendly" : "Strict");
+      const tag = el("span", "mode-tag " + c.mode, c.mode === "friendly" ? domainName(c.domain_id) : "Thủ tục");
       const m = el("button", "conv-more", "⋯");
       m.type = "button"; m.title = "Tuỳ chọn"; m.setAttribute("aria-label", "Tuỳ chọn hộp thoại");
       m.onclick = (e) => {
@@ -541,7 +670,7 @@
     box.appendChild(status); scroll();
     const ctl = new AbortController(); abortCtl = ctl;
     try {
-      const body = { text, root: convId };
+      const body = { text, root: convId, websearch: webOn };
       if (replyTo) body.reply_to = replyTo;
       const res = await fetch("/s4/strict/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: ctl.signal });
       if (res.status === 401) { toLogin(); return; }
@@ -661,7 +790,7 @@
     box.querySelectorAll(".choice-item,.choice-custom-btn,.choice-custom-input").forEach((x) => (x.disabled = true));
     if (!regen) userMsg(text);
     try {
-      if (mode === "friendly") await sendFriendly({ text, conversation_id: convId, mode: thinkOn ? "think" : "fast", ...(extra || {}) });
+      if (mode === "friendly") await sendFriendly({ text, conversation_id: convId, mode: thinkOn ? "think" : "fast", websearch: webOn, domain_id: domainId, ...(extra || {}) });
       else await sendStrict(text, replyTo);
     } finally {
       setBusy(false); scroll(); refreshList();
@@ -697,6 +826,7 @@
     b.setAttribute("aria-pressed", String(thinkOn));
     b.classList.toggle("on", thinkOn);
   }
+  $("web-toggle").onclick = () => { webOn = !webOn; const b = $("web-toggle"); b.setAttribute("aria-pressed", String(webOn)); b.classList.toggle("on", webOn); $("input").focus(); };
   $("think-toggle").onclick = () => { thinkOn = !thinkOn; ls.set("s4_think", thinkOn ? "1" : "0"); renderThink(); $("input").focus(); };
   $("logout").onclick = async () => { try { await api("/s4/auth/logout", {}); } catch (_) {} toLogin(); };
 
@@ -851,7 +981,7 @@
   }
 
   async function settingsCall(url, body, okMsg) {
-    try { const r = await api(url, body); renderSettings(r.settings); note(okMsg); } catch (e) { note(e.message, true); }
+    try { const r = await api(url, body); renderSettings(r.settings); note(okMsg.replace("Tải lại trang để áp dụng.", "Đang tải lại trang…")); setTimeout(() => location.reload(), 600); } catch (e) { note(e.message, true); }
   }
 
   $("open-settings").onclick = async () => {
@@ -888,9 +1018,9 @@
   const KIND = { table: "Bảng (đã khớp cấu trúc)", rows: "Bảng (không khớp, lưu dạng dòng chữ)", text: "Văn bản", mixed: "Bảng + văn bản" };
 
   async function loadDatasets() {
-    try { ds = await api("/s4/datasets"); } catch (_) { return; }
+    try { ds = await api("/s4/datasets?domain_id=" + domainId); } catch (_) { return; }
+    $("attach").style.display = ds.can_upload ? "" : "none";
     renderSpecBadge();
-    if (!$("data-modal").hidden) renderDatasets();
     ds.datasets.forEach((d) => {
       if (!pending.has(d.id)) return;
       if (d.status === "ready") { uploadPill(pending.get(d.id), "Đã sẵn sàng · " + d.n_records + " bản ghi" + (d.active ? " · Chuyên gia đã bật" : " · đang tắt (vượt giới hạn)"), "ok", 6000); pending.delete(d.id); }
@@ -921,7 +1051,7 @@
     if (hideAfter) setTimeout(() => { p.remove(); box2.hidden = !box2.children.length; }, hideAfter);
   }
 
-  function uploadOne(file) {
+  function uploadOne(file, did) {
     return new Promise((resolve, reject) => {
       const x = new XMLHttpRequest();
       x.open("POST", "/s4/datasets");
@@ -932,59 +1062,90 @@
         if (x.status >= 200 && x.status < 300) resolve(d); else reject(new Error(typeof d.detail === "string" ? d.detail : x.statusText));
       };
       x.onerror = () => reject(new Error("Lỗi mạng"));
-      const fd = new FormData(); fd.append("file", file); x.send(fd);
+      const fd = new FormData(); fd.append("file", file); fd.append("domain_id", String(did || domainId)); x.send(fd);
     });
   }
 
-  async function uploadFiles(files) {
+  async function uploadFiles(files, did) {
     for (const f of files) {
       uploadPill(f.name, "Đang tải lên…", "pending");
-      try { const r = await uploadOne(f); pending.set(r.dataset.id, f.name); uploadPill(f.name, "Đang chờ xử lý…", "pending"); }
+      try { const r = await uploadOne(f, did); pending.set(r.dataset.id, f.name); uploadPill(f.name, "Đang chờ xử lý…", "pending"); }
       catch (e) { uploadPill(f.name, e.message, "failed", 12000); }
     }
-    loadDatasets();
+    loadDatasets(); refreshPanels();
   }
 
-  function renderDatasets() {
-    const q = ds.quota, used = q.used || 0;
-    const qbox = $("data-quota"); qbox.innerHTML = "";
-    if (q.limit) {
-      const pct = Math.min(100, (used / q.limit) * 100);
-      const bar = el("div", "bar"); const fill = el("i", pct > 90 ? "full" : ""); fill.style.width = pct + "%"; bar.appendChild(fill);
-      qbox.append(bar, el("small", "", "Đã dùng " + fmtSize(used) + " / " + fmtSize(q.limit) + (pct > 90 ? " · sắp hết, hãy xoá bớt bộ dữ liệu cũ" : "")));
-    } else qbox.appendChild(el("small", "", "Đã dùng " + fmtSize(used) + " · tài khoản dev không giới hạn dung lượng"));
-    const warn = $("data-warn"); warn.textContent = (ds.active.warnings || []).join(" "); warn.hidden = !(ds.active.warnings || []).length;
-    const ul = $("data-list"); ul.innerHTML = "";
-    if (!ds.datasets.length) ul.appendChild(el("li", "mem-empty", "Chưa có bộ dữ liệu nào. Bấm \"+ Tải tệp lên\"."));
-    ds.datasets.forEach((d) => {
-      const li = el("li");
-      const sw = el("label", "switch"), cb = el("input"), knob = el("span");
-      cb.type = "checkbox"; cb.checked = d.active; cb.disabled = d.status !== "ready";
-      cb.title = d.status === "ready" ? (d.active ? "Đang bật: AI dùng bộ này" : "Đang tắt") : "Chờ xử lý xong";
-      cb.onchange = async () => {
-        try { const r = await api("/s4/datasets/" + d.id, { active: cb.checked }, "PATCH"); ds.active = r.active; }
-        catch (e) { alert(e.message); cb.checked = !cb.checked; }
-        loadDatasets();
-      };
-      sw.append(cb, knob);
-      const main = el("div", "ds-main");
-      main.appendChild(el("div", "ds-name", d.name));
-      main.appendChild(el("div", "ds-msg" + (d.status === "error" ? " err" : ""), d.message || d.status));
-      if (d.status === "queued" || d.status === "processing") { const pg = el("div", "ds-progress"); const i = el("i"); i.style.width = d.progress + "%"; pg.appendChild(i); main.appendChild(pg); }
-      main.appendChild(el("div", "ds-meta", [KIND[d.kind] || "", d.n_records ? d.n_records + " bản ghi" : "", fmtSize(d.size_bytes), d.filename].filter(Boolean).join(" · ")));
-      const act = el("div", "ds-actions");
-      if (d.status === "ready") act.appendChild(actionBtn("Xem", "Xem các bản ghi", () => openRecords(d)));
-      if (d.status === "ready") act.appendChild(actionBtn("Cách đọc", "Xem hệ thống đã đọc tệp thế nào: dòng tiêu đề, cột tiêu đề, bản ghi đầu", () => S4Inspect.reading(d.id)));
-      if (d.status === "error" || d.status === "ready") act.appendChild(actionBtn("Xử lý lại", "Đọc lại tệp và tạo lại chỉ mục", async () => { try { await api("/s4/datasets/" + d.id + "/retry", {}); pending.set(d.id, d.filename); } catch (e) { alert(e.message); } loadDatasets(); }));
-      act.appendChild(actionBtn("Xoá", "Xoá bộ dữ liệu", async () => {
-        if (!confirm('Xoá bộ dữ liệu "' + d.name + '"? Không khôi phục được.')) return;
-        try { await api("/s4/datasets/" + d.id, null, "DELETE"); } catch (e) { alert(e.message); }
-        loadDatasets();
-      }));
-      main.appendChild(act);
-      li.append(sw, main);
-      ul.appendChild(li);
-    });
+  /* Dữ liệu nằm trong trình quản lý lĩnh vực: mỗi dòng lĩnh vực có nút "Dữ liệu" mở bảng riêng của lĩnh vực đó. */
+  const panels = new Set();
+  const refreshPanels = () => panels.forEach((p) => { if (p.isConnected) p.refresh(); else panels.delete(p); });
+
+  function dsItem(d, refresh) {
+    const li = el("li");
+    const sw = el("label", "switch"), cb = el("input"), knob = el("span");
+    const mineDs = d.user_id === me.id || me.role === "dev";
+    cb.type = "checkbox"; cb.checked = d.active; cb.disabled = d.status !== "ready" || !mineDs;
+    cb.title = d.status === "ready" ? (d.active ? "Đang bật: AI dùng bộ này" : "Đang tắt") : "Chờ xử lý xong";
+    cb.onchange = async () => {
+      try { await api("/s4/datasets/" + d.id, { active: cb.checked }, "PATCH"); }
+      catch (e) { alert(e.message); cb.checked = !cb.checked; }
+      refresh();
+    };
+    sw.append(cb, knob);
+    const main = el("div", "ds-main");
+    main.appendChild(el("div", "ds-name", d.name));
+    main.appendChild(el("div", "ds-msg" + (d.status === "error" ? " err" : ""), d.message || d.status));
+    if (d.status === "queued" || d.status === "processing") { const pg = el("div", "ds-progress"); const i = el("i"); i.style.width = d.progress + "%"; pg.appendChild(i); main.appendChild(pg); }
+    main.appendChild(el("div", "ds-meta", [KIND[d.kind] || "", d.n_records ? d.n_records + " bản ghi" : "", fmtSize(d.size_bytes), d.filename,
+      d.user_id !== me.id ? "dùng chung (" + (d.username || "dev") + ")" : "", d.locked ? "chỉ cán bộ" : ""].filter(Boolean).join(" · ")));
+    const act = el("div", "ds-actions");
+    if (d.status === "ready") act.appendChild(actionBtn("Xem", "Xem các bản ghi", () => openRecords(d)));
+    if (d.status === "ready") act.appendChild(actionBtn("Cách đọc", "Xem hệ thống đã đọc tệp thế nào: dòng tiêu đề, cột tiêu đề, bản ghi đầu", () => S4Inspect.reading(d.id)));
+    if (me.role === "dev") act.appendChild(actionBtn(d.locked ? "Mở khoá" : "Khoá", "Khoá: chỉ dev và cán bộ dùng bộ dữ liệu này", async () => {
+      try { await api("/s4/datasets/" + d.id, { locked: !d.locked }, "PATCH"); } catch (e) { alert(e.message); }
+      refresh();
+    }));
+    if (mineDs && (d.status === "error" || d.status === "ready")) act.appendChild(actionBtn("Xử lý lại", "Đọc lại tệp và tạo lại chỉ mục", async () => { try { await api("/s4/datasets/" + d.id + "/retry", {}); pending.set(d.id, d.filename); } catch (e) { alert(e.message); } refresh(); }));
+    if (mineDs) act.appendChild(actionBtn("Xoá", "Xoá bộ dữ liệu", async () => {
+      if (!confirm('Xoá bộ dữ liệu "' + d.name + '"? Không khôi phục được.')) return;
+      try { await api("/s4/datasets/" + d.id, null, "DELETE"); } catch (e) { alert(e.message); }
+      refresh();
+    }));
+    main.appendChild(act);
+    li.append(sw, main);
+    return li;
+  }
+
+  function dataPanel(dom) {
+    const root = el("div", "dom-data");
+    const quota = el("div", "quota"), warn = el("div", "data-warn"), list = el("ul", "data-list");
+    const up = el("button", "primary", "+ Tải tệp lên"); up.type = "button";
+    const fin = el("input"); fin.type = "file"; fin.multiple = true; fin.hidden = true;
+    up.onclick = () => fin.click();
+    fin.onchange = () => { const f = [...fin.files]; fin.value = ""; if (f.length) uploadFiles(f, dom.id); };
+    root.append(quota, warn, list, up, fin);
+    let timer = null;
+    root.refresh = async () => {
+      let st;
+      try { st = await api("/s4/datasets?domain_id=" + dom.id); } catch (_) { return; }
+      const q = st.quota || {}, used = q.used || 0;
+      quota.innerHTML = "";
+      if (q.limit) {
+        const pct = Math.min(100, (used / q.limit) * 100);
+        const bar = el("div", "bar"); const fill = el("i", pct > 90 ? "full" : ""); fill.style.width = pct + "%"; bar.appendChild(fill);
+        quota.append(bar, el("small", "", "Đã dùng " + fmtSize(used) + " / " + fmtSize(q.limit) + (pct > 90 ? " · sắp hết, hãy xoá bớt bộ dữ liệu cũ" : "")));
+      } else quota.appendChild(el("small", "", "Đã dùng " + fmtSize(used) + " · tài khoản dev không giới hạn dung lượng"));
+      warn.textContent = (st.active.warnings || []).join(" "); warn.hidden = !(st.active.warnings || []).length;
+      fin.accept = (st.formats || []).join(",");
+      up.hidden = !st.can_upload;
+      list.innerHTML = "";
+      if (!st.datasets.length) list.appendChild(el("li", "mem-empty", st.can_upload ? 'Chưa có bộ dữ liệu nào trong lĩnh vực này. Bấm "+ Tải tệp lên".' : "Lĩnh vực này chưa có bộ dữ liệu dùng chung."));
+      st.datasets.forEach((d) => list.appendChild(dsItem(d, () => { root.refresh(); if (dom.id === domainId) loadDatasets(); })));
+      clearTimeout(timer);
+      if (st.datasets.some((d) => d.status === "queued" || d.status === "processing")) timer = setTimeout(() => { if (root.isConnected) root.refresh(); }, 2000);
+    };
+    panels.add(root);
+    root.refresh();
+    return root;
   }
 
   /* xem bản ghi của một bộ dữ liệu (tìm + xem thêm) */
@@ -1034,15 +1195,13 @@
   }
 
   $("attach").onclick = () => $("file-input").click();
-  $("data-upload").onclick = () => $("file-input").click();
   $("file-input").onchange = () => { const f = [...$("file-input").files]; $("file-input").value = ""; if (f.length) uploadFiles(f); };
-  const openData = () => { $("data-modal").hidden = false; renderDatasets(); loadDatasets(); };
-  $("open-data").onclick = openData; $("spec-badge").onclick = openData;
-  [["data-close", "data-modal"], ["records-close", "records-modal"], ["source-close", "source-modal"]].forEach(([b, m]) => {
+  $("spec-badge").onclick = () => openDomainManager(domainId);
+  [["records-close", "records-modal"], ["source-close", "source-modal"]].forEach(([b, m]) => {
     $(b).onclick = () => { $(m).hidden = true; };
     $(m).addEventListener("click", (e) => { if (e.target === $(m)) $(m).hidden = true; });
   });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") ["data-modal", "records-modal", "source-modal"].forEach((m) => { $(m).hidden = true; }); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") ["records-modal", "source-modal"].forEach((m) => { $(m).hidden = true; }); });
   /* kéo thả tệp vào khung chat (Friendly) */
   box.addEventListener("dragover", (e) => { if (mode === "friendly") e.preventDefault(); });
   box.addEventListener("drop", (e) => { if (mode !== "friendly") return; e.preventDefault(); const f = [...e.dataTransfer.files]; if (f.length) uploadFiles(f); });
@@ -1086,16 +1245,19 @@
     document.title = pub.app_title || "Instant Specialist";
     const nameEl = $("user-name");
     nameEl.textContent = me.username;
-    nameEl.appendChild(el("span", "role-tag", me.role === "dev" ? "· dev" : "· user"));
+    nameEl.appendChild(el("span", "role-tag", "· " + ({ dev: "dev", can_bo: "cán bộ" }[me.role] || "người dân")));
     $("open-settings").hidden = me.role !== "dev";
     $("open-admin").hidden = me.role !== "dev";
     const savedThink = ls.get("s4_think");
     thinkOn = savedThink === null ? pub.default_answer_mode === "think" : savedThink === "1";
     renderThink();
-    loadDatasets();
     let saved = null;
     try { saved = JSON.parse(ls.get("s4_conv") || "null"); } catch (_) {}
-    setMode(saved ? saved.mode : (ls.get("s4_mode") || pub.default_mode));
+    await loadDomains();
+    const wantMode = saved ? saved.mode : (ls.get("s4_mode") || pub.default_mode);
+    const byMode = domains.find((d) => d.engine === (wantMode === "strict" ? "strict" : "friendly"));
+    setDomain(Number(ls.get("s4_domain")) || (byMode || domains[0] || {}).id);
+    if (saved && mode !== saved.mode) saved = null;   // domain đã chọn khác chế độ của hội thoại cũ (domain bị khoá…)
     loadCfg();
     await loadConv(saved ? saved.id : null, saved ? saved.mode : null);
     refreshList();

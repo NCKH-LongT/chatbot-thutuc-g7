@@ -182,3 +182,34 @@ body[data-mode="strict"] #attach,body[data-mode="strict"] #spec-badge{display:no
   .mode-switch button{padding:5px 9px}
   .chat-head .model-name{display:none}
 }
+
+/* ---- domain (2c) ---- */
+.domain-bar{flex-wrap:wrap}
+.domain-bar button{white-space:nowrap}
+.domain-more{flex:none;max-width:150px;padding:5px 8px;border-radius:999px;font-size:13px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink-2)}
+.dom-row{display:grid;gap:6px;padding:10px 0;border-bottom:1px solid var(--line)}
+.dom-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dom-head b{font-size:14px}
+.dom-tag{font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:6px;border:1px solid var(--line);color:var(--ink-2)}
+.dom-tag.hard{color:var(--accent)}
+.dom-tag.lock{color:#b45309}
+.dom-edit{display:grid;gap:6px;padding:8px;border-radius:8px;background:var(--panel-2)}
+.dom-edit input[type=text],.dom-edit textarea,.dom-form input[name=name],.dom-form textarea{width:100%;box-sizing:border-box}
+.dom-check{display:flex;align-items:center;gap:6px;font-size:13px}
+.dom-form{display:grid;gap:8px;margin-top:14px}
+.dom-form h3{margin:0;font-size:14px}
+.dom-x{display:inline-block;margin-left:6px;padding:0 3px;border-radius:50%;font-size:14px;line-height:15px;opacity:.45}
+.dom-x:hover{opacity:1;background:rgba(0,0,0,.12)}
+
+/* thanh đầu: không bóp chữ trong nút (trước đây "Bắt đầu chủ đề mới" bị xuống 5 dòng ở chế độ Thủ tục); thiếu chỗ thì xuống hàng, không dồn cột */
+.chat-head{flex-wrap:wrap;row-gap:8px}
+.chat-head>*{flex:none;white-space:nowrap}
+.chat-head h1{flex:1 1 0;min-width:48px}
+.chat-head .model-name{flex:0 1 auto;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+@media (min-width:900px){.chat-head{padding-left:16px;padding-right:16px}}
+
+/* dữ liệu trong trình quản lý lĩnh vực */
+.dom-data{padding:6px 10px 10px;border-radius:8px;background:var(--panel-2)}
+.dom-data .data-list>li:last-of-type{border-bottom:0}
+.data-list>.dom-row{flex-direction:column;align-items:stretch;gap:6px}
+.dom-edit[hidden]{display:none}
