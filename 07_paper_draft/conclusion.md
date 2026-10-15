@@ -1,5 +1,13 @@
-# 6. Conclusion and Future Work
+# 6. CONCLUSION & FUTURE WORK
 
-We presented **Sys_3_4**, an enterprise-grade, dual-engine legal AI assistant specifically tailored for Vietnamese grassroots public administration. By bridging deterministic lexical precision with local SLM conversational adaptability and enforcing strict clarify state isolation, Sys_3_4 achieves 75.3% Top-1 accuracy on blind holdout evaluations, 96.7% multi-turn context resolution, 0.0% numerical hallucination, and median sub-30ms latency on edge hardware.
+This paper presented **Sys_3_4**, an enterprise context-aware legal artificial intelligence assistant designed for Vietnamese public administration. By integrating a deterministic **Strict Engine (System 3)** with an extensible **Friendly Engine (System 4)** and enforcing multi-turn *Clarify State Isolation*, the architecture resolves the twin hazards of hallucination and conversational drift. 
 
-Future work will focus on integrating speech-to-text for audio-driven citizen kiosks and extending the multi-tiered regulatory framework to provincial and national appellate levels.
+Extensive empirical evaluations across 1,352 standardized test cases demonstrate:
+- **78% behavioral accuracy and 73% Top-1 retrieval** (MRR 0.759, nDCG@5 0.752) on the official 553-case blind evaluation suite.
+- **85% behavioral accuracy and 78% Top-1** (MRR 0.824, nDCG@5 0.805) on the official HOLDOUT-4 benchmark.
+- **91% general accuracy (29/32), 100% document QA citation accuracy, and zero web numerical hallucinations** on System 4.
+- **100% PII redaction recall** on citizen identity numbers and telephone formats.
+- **100% adversarial prompt injection resistance** across 11 distinct attack vectors.
+- Sub-100 ms pure algorithmic retrieval latency on commodity CPU hardware.
+
+Future work will focus on expanding text-to-SQL aggregation for administrative procedure listings, integrating regional dialectal query expansion, and implementing semantic vector caching (GPTCache) and continuous memory serving (vLLM) for provincial-scale deployment.

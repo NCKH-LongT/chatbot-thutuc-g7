@@ -6,30 +6,28 @@
   - 1.1 Public Administration Transformation in Vietnam
   - 1.2 Core Technical Challenges in Civic Legal QA
   - 1.3 Key Contributions
-- **2. Related Work**
-  - 2.1 E-Government Chatbots & Public Administration AI
-  - 2.2 Legal RAG and Statutory Query Systems
-  - 2.3 Fact-Checking, Grounding, and Hallucination Verification
-  - 2.4 Hybrid Sparse-Dense Retrieval
-  - 2.5 Local SLMs and Edge Computing
-- **3. Proposed System Architecture (Sys_3_4)**
-  - 3.1 Dual-Engine Decoupling (Strict vs. Friendly)
-  - 3.2 Syllable-Level IDF with Accent Mismatch Penalties
-  - 3.3 Multi-Turn Context Tracking with Clarify State Isolation
-  - 3.4 Hybrid Retrieval with RRF and Cross-Encoder Reranking
-  - 3.5 Deterministic Post-Hoc Fact-Checking Verifier
-- **4. Experimental Methodology**
-  - 4.1 Dataset Construction & Benchmark Splits
-  - 4.2 Baseline Models
-  - 4.3 Evaluation Metrics
-- **5. Results and Empirical Analysis**
-  - 5.1 Retrieval and Behavioral Accuracy
-  - 5.2 Multi-Turn Context Resolution Evaluation
-  - 5.3 Factuality and Zero-Hallucination Verification
-  - 5.4 Latency and Resource Consumption Profiling
-- **6. Discussion, Limitations, and Future Work**
-  - 6.1 Practical Lessons in Public Sector AI
-  - 6.2 Limitations of Portal Snapshot Data
-  - 6.3 Future Work
-- **7. Conclusion**
+- **2. Related Works: Quantitative Analysis and Technical Methods**
+  - 2.1 E-Government Chatbots and Public Administration AI
+  - 2.2 Legal RAG, Hallucination Verification, and Statutory QA
+  - 2.3 Hybrid Retrieval, Reranking, and Table Understanding
+  - 2.4 Local SLMs and Edge Computing
+  - 2.5 Vietnamese Legal & Public Administration AI
+  - 2.6 Benchmarking Frameworks and Automated Judges
+- **3. Sys_3_4 System Architecture & Engineering Design**
+  - 3.1 Strict Engine (System 3) Operational Principles
+  - 3.2 Multi-Turn Context State Engine: Clarify State Isolation
+  - 3.3 Friendly Engine (System 4): Citizen Document QA & Live Web Search
+  - 3.4 Future Enterprise Scaling Architecture
+- **4. Empirical Evaluation & Transparent Results**
+  - 4.1 Strict Engine (System 3): Comprehensive Evaluation by Split Status
+  - 4.2 Granular Breakdown Across Evaluation Benchmark Sources
+  - 4.3 Domain-Thematic Structural Evaluation (Template Benchmark)
+  - 4.4 Friendly Engine (System 4): Multi-Domain & Document QA Evaluation
+  - 4.5 True Execution Latency & Hardware Profile
+  - 4.6 Safety, Privacy, and Injection Robustness (Tiers D1 & D2)
+- **5. Discussion & Scientific Audit of Evaluation Methodology**
+  - 5.1 The Empirical Fallacy of LLM-as-a-Judge for Statutory RAG
+  - 5.2 Analysis of the Generalization Gap in Public Administration
+  - 5.3 Known System & Data Limitations
+- **6. Conclusion & Future Work**
 - **References**
