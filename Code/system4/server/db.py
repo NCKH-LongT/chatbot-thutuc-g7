@@ -40,6 +40,12 @@ def _migrate(c: sqlite3.Connection) -> None:
     if c.execute("SELECT COUNT(*) FROM domains").fetchone()[0] == 0:   # hai domain có sẵn, không xoá được
         c.execute("INSERT INTO domains(id,name,kind,engine,sort) VALUES (1,'Thủ tục','hard','strict',0)")
         c.execute("INSERT INTO domains(id,name,kind,engine,user_upload,sort) VALUES (2,'Trò chuyện chung','soft','friendly',1,1)")
+    if not c.execute("SELECT 1 FROM domains WHERE engine='abi'").fetchone():   # lĩnh vực ABI (docs/PLAN_ABI_LINH_VUC.md): tìm theo engine, KHÔNG cố định id
+        c.execute("INSERT INTO domains(name,kind,engine,guardrail,sort) VALUES (?,?,?,?,?)", (ABI_DOMAIN_NAME, "hard", "abi", ABI_GUARDRAIL, 2))
+    if "model" not in cols("strict_nodes"):
+        c.execute("ALTER TABLE strict_nodes ADD COLUMN model TEXT NOT NULL DEFAULT ''")
+    if "context" not in cols("feedback_log"):
+        c.execute("ALTER TABLE feedback_log ADD COLUMN context TEXT NOT NULL DEFAULT '{}'")
     added = False
     for col, ddl in (("parent_id", "INTEGER"), ("meta", "TEXT NOT NULL DEFAULT '{}'"),
                      ("feedback", "INTEGER NOT NULL DEFAULT 0")):
@@ -286,14 +292,31 @@ def set_feedback(mid: int, value: int) -> None:
     run("UPDATE messages SET feedback=? WHERE id=?", (value, mid))
 
 
-def log_feedback(engine: str, msg_key, user_id: int, domain_id, cid: str, prompt: str, answer: str, value: int) -> None:
-    """Chụp (câu hỏi, câu trả lời, 👍/👎) vào feedback_log; value 0 thì xoá dòng. Đổi ý thì ghi đè, không tạo trùng."""
+FEEDBACK_REASONS = {"wrong_proc", "wrong_number", "no_clarify", "wrong_info", "off_topic", "bad_format", "other"}
+
+
+def clean_reason(reason: str) -> str:
+    """Lý do 👎 chọn nhanh: chỉ nhận mã trong danh sách; mã lạ thành "other"; rỗng giữ rỗng."""
+    return reason if reason in FEEDBACK_REASONS or not reason else "other"
+
+
+def mask_pii(text: str) -> str:
+    """Che CCCD/SĐT bằng bộ che của System 3 (server/policy). Không nạp được thì báo lỗi, không lưu nguyên văn."""
+    from policy import mask_pii as _mask
+    return _mask(text)
+
+
+def log_feedback(engine: str, msg_key, user_id: int, domain_id, cid: str, prompt: str, answer: str, value: int, context: dict | None = None) -> None:
+    """Chụp (câu hỏi, câu trả lời, 👍/👎) vào feedback_log; value 0 thì xoá dòng. Đổi ý thì ghi đè, không tạo trùng.
+    Câu hỏi và câu trả lời được che CCCD/SĐT trước khi ghi."""
     if value == 0:
         run("DELETE FROM feedback_log WHERE engine=? AND msg_key=?", (engine, str(msg_key)))
         return
-    run("INSERT INTO feedback_log(engine,msg_key,user_id,domain_id,conversation_id,prompt,answer,value) VALUES (?,?,?,?,?,?,?,?) "
+    prompt, answer = mask_pii(prompt), mask_pii(answer)
+    run("INSERT INTO feedback_log(engine,msg_key,user_id,domain_id,conversation_id,prompt,answer,value,context) VALUES (?,?,?,?,?,?,?,?,?) "
         "ON CONFLICT(engine,msg_key) DO UPDATE SET value=excluded.value, prompt=excluded.prompt, answer=excluded.answer, "
-        "created_at=datetime('now')", (engine, str(msg_key), user_id, domain_id, cid, prompt, answer, value))
+        "context=excluded.context, created_at=datetime('now')",
+        (engine, str(msg_key), user_id, domain_id, cid, prompt, answer, value, json.dumps(context or {}, ensure_ascii=False)))
 
 
 def get_summary(cid: str) -> tuple[str, int]:
@@ -383,7 +406,11 @@ def readable_dataset(user: dict, ds: dict) -> bool:
 
 
 # ------------------------------------------------------------------- domain
-BUILTIN_DOMAINS = (1, 2)   # Thủ tục (System 3) và Trò chuyện chung: không xoá được
+BUILTIN_DOMAINS = (1, 2)   # Thủ tục (System 3) và Trò chuyện chung: không xoá được (lĩnh vực ABI là lĩnh vực cứng nên cũng không xoá được)
+ABI_DOMAIN_NAME = "ABI – Trung tâm Ươm tạo"
+ABI_GUARDRAIL = ("Bạn là trợ lý tra cứu thông tin Trung tâm Ươm tạo Doanh nghiệp Nông nghiệp Công nghệ cao TP.HCM (ABI, web abi.com.vn). "
+                 "Chỉ trả lời từ dữ liệu được cung cấp; không đoán số liệu, ngày giờ, tên người. Câu hỏi ngoài phạm vi trung tâm thì nói rõ "
+                 "bạn chỉ hỗ trợ thông tin về trung tâm.")
 
 
 def get_domain(did: int | None) -> dict | None:

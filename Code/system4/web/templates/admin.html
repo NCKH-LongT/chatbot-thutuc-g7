@@ -18,6 +18,7 @@
 <nav class="admin-tabs" role="tablist">
   <button type="button" class="tab active" data-tab="strict" role="tab">Dữ liệu Strict (thủ tục)</button>
   <button type="button" class="tab" data-tab="datasets" role="tab">Dữ liệu người dùng</button>
+  <button type="button" class="tab" data-tab="abi" role="tab">Dữ liệu ABI</button>
   <button type="button" class="tab" data-tab="users" role="tab">Người dùng</button>
   <button type="button" class="tab" data-tab="stats" role="tab">Thống kê</button>
   <button type="button" class="tab" data-tab="lab" role="tab">Thử tìm kiếm</button>
@@ -79,6 +80,31 @@
     </div>
   </section>
 
+  <!-- Tab: lĩnh vực ABI — dữ liệu tự đồng bộ từ abi.com.vn (system4/abi) -->
+  <section id="tab-abi" class="admin-tab" hidden>
+    <div class="card">
+      <div class="row-between">
+        <div>
+          <b>abi.com.vn:</b> <span id="abi-synced">…</span>
+          <div class="muted small">Lĩnh vực «ABI» lấy dữ liệu từ các API công khai của abi.com.vn (cơ cấu tổ chức, sự kiện, chương trình,
+            đối tác, tin tức, trang giới thiệu). Tự đồng bộ theo ⚙ "Tự đồng bộ abi.com.vn mỗi (giờ)". Không cần tải tệp lên.</div>
+        </div>
+        <div class="row">
+          <button id="abi-sync-btn" class="primary" type="button" title="Kéo lại dữ liệu từ abi.com.vn (lần đầu khoảng 3 phút, các lần sau nhanh hơn)">Đồng bộ ngay</button>
+        </div>
+      </div>
+      <div id="abi-job" class="job" hidden></div>
+    </div>
+    <div class="card">
+      <h2>Dữ liệu hiện có</h2>
+      <table class="grid" id="abi-counts"></table>
+    </div>
+    <div class="card">
+      <h2>Các lần đồng bộ gần đây</h2>
+      <table class="grid" id="abi-runs"></table>
+    </div>
+  </section>
+
   <!-- Tab 3: người dùng -->
   <section id="tab-users" class="admin-tab" hidden>
     <div class="card">
@@ -105,6 +131,12 @@
     <div class="card">
       <h2>Phản hồi 👍 / 👎 và tài khoản</h2>
       <table class="grid" id="stat-other"></table>
+      <p class="small">Tải câu hỏi + câu trả lời đã được đánh giá (đã che CCCD/SĐT):</p>
+      <table class="grid">
+        <tr><td>Tất cả</td><td><a href="/s4/admin/feedback.csv" download>.csv (mở bằng Excel)</a></td><td><a href="/s4/admin/feedback.jsonl" download>.jsonl</a></td></tr>
+        <tr><td>Chỉ 👍</td><td><a href="/s4/admin/feedback.csv?value=1" download>.csv</a></td><td><a href="/s4/admin/feedback.jsonl?value=1" download>.jsonl</a></td></tr>
+        <tr><td>Chỉ 👎</td><td><a href="/s4/admin/feedback.csv?value=-1" download>.csv</a></td><td><a href="/s4/admin/feedback.jsonl?value=-1" download>.jsonl</a></td></tr>
+      </table>
     </div>
   </section>
   <!-- Tab 4: phòng thử tìm kiếm (bộ công cụ dev) -->

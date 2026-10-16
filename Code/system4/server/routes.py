@@ -32,6 +32,7 @@ class SwitchIn(BaseModel):
 
 class FeedbackIn(BaseModel):
     value: int   # 1 | -1 | 0
+    reason: str = ""   # lý do chọn nhanh khi 👎 (không bắt buộc)
 
 
 class HeaderRowIn(BaseModel):
@@ -197,7 +198,7 @@ def make_router(s3_store, strict_list, drop_strict) -> APIRouter:
         q = db.get_message(m["parent_id"]) if m.get("parent_id") else None
         conv = db.run("SELECT domain_id FROM conversations WHERE id=?", (cid,), one=True)
         db.log_feedback("friendly", mid, request.state.user["id"], conv and conv["domain_id"], cid,
-                        q["content"] if q else "", m["content"], body.value)
+                        q["content"] if q else "", m["content"], body.value, {"model": m["meta"].get("model") or settings.get("FRIENDLY_MODEL"), "reason": db.clean_reason(body.reason)})
         return {"ok": True}
 
     @r.patch("/conversations/{cid}")
@@ -244,7 +245,7 @@ def make_router(s3_store, strict_list, drop_strict) -> APIRouter:
             dom = db.get_domain(db.get_conversation(cid)["domain_id"])
         else:
             dom = db.get_domain(body.domain_id or 2)
-        if not dom or dom["engine"] != "friendly" or not db.can_use_domain(u, dom):
+        if not dom or dom["engine"] not in ("friendly", "abi") or not db.can_use_domain(u, dom):   # abi: pipeline Friendly + nguồn abi.com.vn
             raise HTTPException(403, "Bạn không dùng được lĩnh vực này")
         if body.regenerate_of:
             m = own_message(request, cid, body.regenerate_of)
@@ -366,6 +367,8 @@ def make_router(s3_store, strict_list, drop_strict) -> APIRouter:
     @r.post("/datasets/{ds_id}/retry")
     def retry_dataset(ds_id: int, request: Request):
         ds = own_dataset(request, ds_id)
+        if datasets.synced(ds):
+            raise HTTPException(422, "Bộ dữ liệu này tự đồng bộ từ abi.com.vn: dùng Quản trị → Dữ liệu ABI → Đồng bộ ngay")
         db.update_dataset(ds_id, status="queued", progress=0, message="Đang chờ xử lý lại…")
         datasets.enqueue(ds["id"])
         return {"ok": True}
@@ -374,6 +377,8 @@ def make_router(s3_store, strict_list, drop_strict) -> APIRouter:
     def set_header_row(ds_id: int, body: HeaderRowIn, request: Request):
         """"Cách đọc": người dùng chọn lại dòng tiêu đề cột cho một bảng (0 = để hệ thống tự đoán) -> xử lý lại tệp."""
         ds = own_dataset(request, ds_id)
+        if datasets.synced(ds):
+            raise HTTPException(422, "Bộ dữ liệu tự đồng bộ từ abi.com.vn không có tệp gốc để đọc lại")
         try:
             mapping = json.loads(ds.get("mapping") or "{}")
         except ValueError:
