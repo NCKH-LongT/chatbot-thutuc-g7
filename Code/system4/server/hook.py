@@ -2,7 +2,9 @@
 
 install(app, s3_store) thêm:
   - API /s4/* và tệp tĩnh /s4/static
-  - cổng đăng nhập cho CẢ web (1B): chưa đăng nhập -> trang /s4/login (trang) hoặc 401 (API)
+  - cổng đăng nhập cho CẢ web (1B): chưa đăng nhập -> trang /s4/login (trang) hoặc 401 (API); khách (guest.py, cookie riêng)
+    chỉ qua được các API trò chuyện, hội thoại của khách lưu trong RAM
+  - giới hạn số lượt hỏi / số yêu cầu theo vai trò (ratelimit.py)
   - trang "/" = trang chung Strict + Friendly (bản sao giao diện System 3, xem system4/web)
   - mỗi người chỉ thấy hội thoại Strict của mình: chặn/lọc các API /conversations, /chat của System 3
     ở lớp middleware; code và DB của System 3 giữ nguyên.
@@ -16,22 +18,36 @@ import threading
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import admin, auth, config, datasets, db, domains, llm, routes, search, settings, strict
+from . import account, admin, auth, config, datasets, db, domains, fastpath, guest, llm, procs, procs_gate, ratelimit, routes, search, settings, strict  # noqa: F401 (procs_gate gán cổng kiểm)
 
-PUBLIC = {"/s4/login", "/s4/auth/login", "/s4/auth/signup", "/s4/auth/logout", "/s4/public", "/health", "/favicon.ico"}
+PUBLIC = {"/s4/login", "/s4/auth/login", "/s4/auth/signup", "/s4/auth/guest", "/s4/auth/logout", "/s4/public", "/health", "/favicon.ico"}
 _CONV = re.compile(r"^/conversations/([^/]+)")
 
 
 def install(app, s3_store) -> None:
     db.init_db()
+    # G2.1: Strict đọc DB bất biến của phiên bản đang dùng (con trỏ system4.db meta.proc_active); lần đầu thì dựng (chặn tới khi xong)
+    import system3.data as s3_data
+    try:
+        procs.ensure_active()
+    except Exception as e:   # không dựng được: Strict dùng DB mặc định (data/runtime/system3.db), báo trong log
+        import logging
+        logging.getLogger("uvicorn.error").error("Không dựng được DB của phiên bản đang dùng: %s", e)
+    s3_data.set_active_provider(procs.active_db)
+    from core import aihealth   # G3.3: "Chỉ trả lời bằng luật" của tài khoản -> lượt Strict bỏ bước LLM
+    aihealth.RULES_ONLY_PROVIDER = lambda req: bool(getattr(req.state, "user", None)) and db.get_rules_only(req.state.user["id"])
     from core import llm as s3_llm   # Strict dùng chung model với Friendly: model chọn ở ⚙ Cài đặt (FRIENDLY_MODEL)
     s3_llm.MODEL_PROVIDER = lambda: settings.get("FRIENDLY_MODEL")
     from core import websearch as s3_web   # khối Tìm web của Strict dùng model riêng (WEBSEARCH_MODEL)
     s3_web.MODEL_PROVIDER = lambda: settings.get("WEBSEARCH_MODEL")
+    guest.install(s3_store)   # khách: bảng hội thoại của System 3 + 4 nằm trong RAM trong lượt của khách
     datasets.resume_unfinished()   # tệp đang nạp dở khi tắt server -> nạp lại
+    fastpath.ensure_all()          # đường nhanh: bộ dữ liệu sẵn sàng mà chưa biên dịch -> biên dịch nền
     from ..abi import scheduler as abi_scheduler
     if os.environ.get("S4_ABI_SYNC", os.environ.get("S4_WARMUP", "1")) == "1":   # ABI: tự đồng bộ abi.com.vn theo ⚙ ABI_SYNC_HOURS (test tắt)
         abi_scheduler.start()
+    from . import bootstrap   # máy mới: có dev là tự nạp dữ liệu thật (Y tế / Giáo dục / Du lịch) + bản chụp FLM, một lần (test tắt)
+    bootstrap.start()
     if os.environ.get("S4_WARMUP", "1") == "1":   # test đặt S4_WARMUP=0
         threading.Thread(target=search.warm_up, name="s4-warmup", daemon=True).start()   # nạp sẵn bge-m3 + reranker
         threading.Thread(target=llm.warm_up, name="s4-warmup-llm", daemon=True).start()   # KEEP_MODELS_LOADED: nạp sẵn model trả lời
@@ -52,12 +68,21 @@ def install(app, s3_store) -> None:
     app.include_router(routes.make_router(s3_store, strict_list, drop_strict))
     app.include_router(strict.make_router(app, s3_store))
     app.include_router(admin.make_router(s3_store))
+    app.include_router(account.make_router(s3_store))
     app.include_router(domains.make_router())
+    app.include_router(fastpath.make_router())
     app.include_router(abi_scheduler.make_router())
+    from ..flm import sync as flm_sync   # lĩnh vực FLM: nút "Đồng bộ FLM" (không có lịch tự đồng bộ: captcha cần người bấm)
+    app.include_router(flm_sync.make_router())
+    if os.environ.get("S4_WARMUP", "1") == "1":   # phiên đăng nhập FLM chỉ sống tới khi tắt server (test không đụng Chrome thật trên máy)
+        threading.Thread(target=flm_sync.close_login, name="s4-flm-cleanup", daemon=True).start()
     app.mount("/s4/static", StaticFiles(directory=str(config.WEB_DIR / "static")), name="s4_static")
 
-    def deny(code: int, detail: str) -> JSONResponse:
-        return JSONResponse({"detail": detail}, status_code=code)
+    def deny(code: int, detail: str, headers: dict | None = None) -> JSONResponse:
+        return JSONResponse({"detail": detail}, status_code=code, headers=headers)
+
+    def ip_of(request) -> str:
+        return request.client.host if request.client else ""
 
     @app.middleware("http")
     async def s4_gate(request, call_next):
@@ -66,14 +91,34 @@ def install(app, s3_store) -> None:
             return await call_next(request)
         user = auth.user_from_cookie(request.cookies.get(auth.COOKIE))
         if not user:
-            if method == "GET" and "text/html" in request.headers.get("accept", ""):
-                return RedirectResponse("/s4/login", 303)
-            return deny(401, "Cần đăng nhập")
+            user = guest.user_from_cookie(request.cookies.get(guest.COOKIE))
+            html = method == "GET" and "text/html" in request.headers.get("accept", "")
+            if not user:
+                if html:
+                    return RedirectResponse("/s4/login", 303)
+                return deny(401, "Cần đăng nhập")
+            if not guest.allowed(method, path):
+                return RedirectResponse("/s4/login", 303) if html else deny(403, guest.DENIED)
         request.state.user = user
-        if not state["legacy"]:   # lần đầu: hội thoại Strict có sẵn -> thuộc dev đầu tiên
+        if not state["legacy"]:   # lần đầu: hội thoại Strict có sẵn -> thuộc dev đầu tiên (đọc DB thật, ngoài lượt của khách)
             db.snapshot_legacy([c["id"] for c in s3_store.list_conversations()])
             state["legacy"] = True
+        internal = request.headers.get("x-s4-internal") == guest.INTERNAL   # cầu nối Strict gọi System 3: đã đếm ở /s4/strict/*
+        if not internal:
+            try:
+                ratelimit.api_hit(user, ip_of(request))
+            except ratelimit.Limited as e:
+                return deny(e.status_code, e.detail, e.headers)
+        if user["role"] != "guest":
+            return await gated(request, call_next, user, path, method, internal)
+        guest.sweep()
+        token = guest.enter(user)
+        try:
+            return await gated(request, call_next, user, path, method, internal)
+        finally:
+            guest.leave(token)
 
+    async def gated(request, call_next, user, path, method, internal):
         if path == "/":
             return FileResponse(config.WEB_DIR / "templates" / "index.html", headers={"Cache-Control": "no-cache"})
         if (path.startswith("/dev/") or (path == "/config" and method != "GET")) and user["role"] != "dev":
@@ -81,6 +126,10 @@ def install(app, s3_store) -> None:
 
         if path == "/chat" and method == "POST" and not db.can_use_domain(user, db.get_domain(1)):
             return deny(403, "Domain Thủ tục đang khoá: chỉ dev và cán bộ dùng được")
+        if path == "/chat" and method == "POST" and db.s4_mode(db.get_domain(1)):   # chế độ System 4: DB thủ tục của System 3 tắt
+            return deny(409, strict.S4_ONLY)
+        if path == "/chat" and method == "POST" and account.over_quota(user, s3_store):   # G1.7: mọi lượt Strict (cả cầu nối)
+            return deny(413, account.QUOTA_MESSAGE)
 
         if path == "/conversations":   # danh sách / xoá tất cả của System 3 -> chỉ của người này
             if method == "GET":
@@ -106,13 +155,24 @@ def install(app, s3_store) -> None:
 
         if path == "/chat" and method == "POST":
             try:
-                cid = json.loads(await request.body() or b"{}").get("conversation_id")
+                req = json.loads(await request.body() or b"{}")
+                cid, text = req.get("conversation_id"), str(req.get("text") or "")
             except (ValueError, AttributeError):
-                cid = None
+                cid, text = None, ""
             if cid and s3_store.conversation_exists(cid) and db.strict_owner(cid) != user["id"]:
                 return deny(404, "conversation not found")
-            resp = await call_next(request)
+            try:   # gọi thẳng /chat của System 3 (không qua cầu nối /s4/strict) cũng tính một lượt hỏi
+                ticket = None if internal else ratelimit.begin_turn(user, ip_of(request), len(text.strip()))
+            except ratelimit.Limited as e:
+                return deny(e.status_code, e.detail, e.headers)
+            try:
+                resp = await call_next(request)
+            finally:
+                if ticket:
+                    ticket.end()
             if resp.status_code != 200:
+                if ticket:
+                    ticket.refund()
                 return resp
             body = b"".join([chunk async for chunk in resp.body_iterator])
             try:

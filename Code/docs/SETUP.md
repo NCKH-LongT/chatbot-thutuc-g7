@@ -2,8 +2,8 @@
 
 ## Yêu cầu
 - Python 3.12 (đã thử trên Windows 10: 3.12.2 ở máy dev; bạn báo cài sạch được trên 3.12.8).
-- [Ollama](https://ollama.com) và model `qwen3:4b` — cần cho bước LLM sinh chữ giải thích điều kiện/so sánh, **bật mặc định** (`S3_USE_LLM=1`, quyết định của nhóm). Planner chạy bằng luật nên **không cần LLM để hệ thống trả lời**: không có Ollama thì lượt đó rơi về câu trả lời bằng code; đặt `S3_USE_LLM=0` để tắt hẳn (và không nạp model).
-- GPU không bắt buộc. Máy dev: GTX 1660 Super 6 GB, qwen3:4b chạy 100% GPU.
+- [Ollama](https://ollama.com) và model `qwen3:4b-instruct-2507-q4_K_M` (`Set up first time.bat` tải sẵn; một model cho Strict + Friendly) — cần cho bước LLM sinh chữ giải thích điều kiện/so sánh, **bật mặc định** (`S3_USE_LLM=1`, quyết định của nhóm). Planner chạy bằng luật nên **không cần LLM để hệ thống trả lời**: không có Ollama thì lượt đó rơi về câu trả lời bằng code; đặt `S3_USE_LLM=0` để tắt hẳn (và không nạp model).
+- GPU không bắt buộc. Máy không có card đồ hoạ: giao diện cảnh báo AI chậm (7–40 giây), Strict bỏ bước LLM và trả bản code ngay; có công tắc "Chỉ trả lời bằng luật" theo tài khoản. Máy đo: RTX 4050 6 GB, model chạy 100% GPU.
 
 ## Cấu trúc thư mục khi clone
 Mã import theo dạng `system3.*`. **Dùng launcher `run_server.py` ở gốc**: nó tự đăng ký package `system3` trỏ vào thư mục chứa nó, nên clone về thư mục tên gì (`intern-amazing-group_7/`, `abc/`...) cũng chạy, không cần `PYTHONPATH`. Gọi thư mục clone là `<SYSTEM3>` (có `run_server.py`, `server/`, `data/` ngay bên trong).
@@ -61,7 +61,13 @@ Biến môi trường (xem `server/config.py`):
 | `PLANNER_LLM_NUM_PREDICT` | 220 | trần token đầu ra của LLM Planner |
 | `S3_PLANNER_LLM_CACHE` | (trống) | CHỈ để đo: tệp jsonl phát lại đề xuất LLM (quét ngưỡng không gọi lại model) |
 | `S3_TABLE_BUTTON` | 1 | 0 = tắt nút "Tạo bảng full" và endpoint `GET /procedure/{proc_id}/table` (câu trả lời về như cũ) |
-| `LLM_MODEL` | qwen3:4b (`Launch web.bat` đặt `qwen3:4b-instruct-2507-q4_K_M` từ 2026-10-08, xem SYSTEM4_NV5 D6) | model Ollama |
+| `LLM_MODEL` | `qwen3:4b-instruct-2507-q4_K_M` (mặc định từ 18/10; ⚙ "Model dùng chung" thắng biến này) | model Ollama |
+| `S3_RULE_WORKERS` | 8 | số luồng chạy phần luật song song (G3.1) |
+| `S3_QUEUE_CONCURRENCY` / `S4_CONCURRENCY` | 1 | số chỗ GPU (card lớn: đặt N cùng `OLLAMA_NUM_PARALLEL=N`) |
+| `S3_STRICT_GPU_WAIT` | 3.0 | giây bước sinh chữ của Strict chờ GPU trước khi trả bản code |
+| `S3_PROVINCE_CLARIFY` | 1 | 0 = tắt thẻ hỏi tỉnh (G4.4) |
+| `S3_CLARIFY_FILLER` / `S3_CLARIFY_NOPROC` | 1 | 0 = tắt bỏ chữ đệm (M1) / hỏi lại khi không nêu thủ tục (M2) — research/clarify/RESULTS.md |
+| `S4_FORCE_CPU` | — | 1 = coi như máy không có card đồ hoạ (thử G3.3) |
 | `OLLAMA_HOST` | http://127.0.0.1:11434 | địa chỉ Ollama |
 | `LLM_KEEP_ALIVE` | 30m | giữ model trong VRAM |
 
@@ -86,6 +92,14 @@ python tests/cap_test.py  # giới hạn bộ nhớ Strict: thủ tục nhớ <=
 python tests/list_intent_test.py  # ý "liệt kê": danh sách tạm, nói rõ chưa đầy đủ; câu thường không bị bắt nhầm
 python tests/compare_cue_test.py  # tách câu so sánh: "A khác gì so với B" và các dạng cũ
 python tests/fee_query_test.py  # đếm / liệt kê theo phí: "bao nhiêu thủ tục giá 20k", "thủ tục nào miễn phí"
+python tests/fee_display_test.py  # lệ phí in đúng đơn vị (USD không thành "đồng", "20.000" đọc thành 20 được sửa)
+python tests/lineage_test.py      # mã thủ tục Cổng cấp lại: proc_lineage ghép mã cũ -> mới (dựng DB ~10 s)
+python tests/gpu_sched_test.py    # hàng GPU chung: lượt chỉ-luật không phải chờ lượt tìm web / LLM của người khác
+python tests/listsql_test.py      # liệt kê / đếm bằng text-to-SQL: hộp cát chặn mọi câu SQL ghi / đọc ngoài proc_flat
+python tests/province_test.py     # thủ tục có bản riêng tỉnh: hỏi tỉnh, nhớ cho cả hội thoại
+python tests/title_test.py        # tên hội thoại Strict = tên thủ tục của lượt trả lời trực tiếp đầu tiên
+python tests/forms_test.py        # biểu mẫu: tên mẫu + link trang thủ tục trên Cổng
+python tests/clarify_vague_test.py # hỏi lại khi mơ hồ: chữ đệm hội thoại, câu không nêu thủ tục nào
 python tests/p30_clarify_test.py  # Phase 30: hỏi lại khi câu là cụm gốc chung, không hỏi thừa khi đã gọi tên; điều kiện phải thêm thông tin ngoài tên thủ tục
 python smoke_test.py             # server tạm (DB tạm, cổng 8391, S3_USE_LLM=0): health, trả lời có nguồn, hỏi lại + bấm nút, messages/trace
 set S3_USE_LLM=0 && python e2e_test.py   # chạy server tạm 5 lượt hội thoại (cổng 8392)

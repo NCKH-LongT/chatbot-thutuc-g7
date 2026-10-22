@@ -12,6 +12,7 @@ from config import WEBSEARCH_MODEL
 
 MODEL_PROVIDER = None   # System 4 gán hàm trả model chọn ở ⚙ (WEBSEARCH_MODEL); không có thì dùng biến môi trường S3_WEBSEARCH_MODEL
 
+SEARCH_BUDGET = 15   # giây: tìm web (mạng) chạy NGOÀI hàng GPU, nhưng không giữ lượt quá lâu (G3.1)
 _cache: dict[tuple, tuple[float, list[dict]]] = {}   # (truy vấn, n) -> (lúc lưu, kết quả); tránh gọi lại khi sinh lại câu trả lời
 
 
@@ -21,13 +22,19 @@ def host_of(url: str) -> str:
 
 def search(query: str, n: int = 5, timeout: int = 8) -> tuple[list[dict], dict]:
     """(evidence, info). evidence = [{id None, title, dataset (tên miền), url, text, score None}] (cùng dạng search.py của System 4).
-    Lỗi mạng / bị giới hạn: evidence rỗng và info["error"] có lý do (không ném lỗi)."""
-    t0, info = time.perf_counter(), {"web": True, "query": query}
+    Lỗi mạng / bị giới hạn: evidence rỗng và info["error"] có lý do (không ném lỗi).
+    G1.3 (D10): CCCD/SĐT trong câu được che TRƯỚC khi gửi lên DuckDuckGo; info["pii_masked"]=True để báo người dùng."""
+    from policy import mask_pii
+    masked = mask_pii(query)
+    t0, info = time.perf_counter(), {"web": True, "query": masked, "pii_masked": masked != query}
+    query = masked
     hit = _cache.get((query, n))
     if hit and time.time() - hit[0] < 600:
         return hit[1], {**info, "cached": True, "ms": 0}
     rows, err = [], ""
-    for _ in (1, 2):   # thử lại 1 lần (DuckDuckGo hay từ chối lẻ tẻ)
+    for attempt in (1, 2):   # thử lại 1 lần (DuckDuckGo hay từ chối lẻ tẻ); G3.1: cả bước tìm tối đa SEARCH_BUDGET giây
+        if attempt == 2 and time.perf_counter() - t0 + timeout > SEARCH_BUDGET:
+            break
         try:
             from ddgs import DDGS
             rows = DDGS(timeout=timeout).text(query, region="vn-vi", max_results=n) or []
@@ -71,8 +78,21 @@ _SYSTEM = ("Bạn trả lời câu hỏi CHỈ dựa vào các kết quả tìm 
            "Kết quả web có thể cũ hoặc sai: nếu các nguồn mâu thuẫn hoặc không đủ để trả lời thì nói rõ.")
 
 
+PII_NOTE = "Đã che số giấy tờ trước khi tìm trên web."
+
+
 def web_block(question: str, n: int = 5, timeout: int = 8) -> tuple[dict, dict]:
-    """Khối trả lời từ web cho Strict: {title, text, sources[{label,url}]}. Không có kết quả -> khối báo không tìm thấy (không bịa)."""
+    """Khối trả lời từ web cho Strict: {title, text, sources[{label,url}]}. Không có kết quả -> khối báo không tìm thấy (không bịa).
+    Câu có CCCD/SĐT: che trước khi tìm và trước khi đưa cho model, thêm dòng PII_NOTE vào khối."""
+    from policy import mask_pii
+    blk, info = _web_block(mask_pii(question), n, timeout)
+    if mask_pii(question) != question:
+        info["pii_masked"] = True
+        blk["text"] = blk["text"] + "\n\n_" + PII_NOTE + "_"
+    return blk, info
+
+
+def _web_block(question: str, n: int, timeout: int) -> tuple[dict, dict]:
     ev, info = search(question, n, timeout)
     if not ev:
         why = "không có mạng hoặc DuckDuckGo từ chối" if info.get("error") else "không có kết quả"

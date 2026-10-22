@@ -7,9 +7,12 @@ import uuid
 from . import config
 
 NEW_TITLE = "Cuộc trò chuyện mới"
+GUEST_CONN = None   # guest.install gán: trong lượt của khách trả kết nối DB RAM (hội thoại khách không ghi vào tệp DB), ngoài lượt khách trả None
 
 
 def conn() -> sqlite3.Connection:
+    if GUEST_CONN is not None and (g := GUEST_CONN()) is not None:
+        return g
     c = sqlite3.connect(str(config.DB_PATH), timeout=5)
     c.row_factory = sqlite3.Row
     c.execute("PRAGMA foreign_keys=ON")
@@ -34,7 +37,9 @@ def _migrate(c: sqlite3.Connection) -> None:
         if col not in cols("conversations"):
             c.execute(f"ALTER TABLE conversations ADD COLUMN {col} {ddl}")
     for t, col, ddl in (("conversations", "domain_id", "INTEGER NOT NULL DEFAULT 2"), ("datasets", "domain_id", "INTEGER NOT NULL DEFAULT 2"),
-                        ("datasets", "locked", "INTEGER NOT NULL DEFAULT 0")):
+                        ("datasets", "locked", "INTEGER NOT NULL DEFAULT 0"), ("domains", "profile", "TEXT NOT NULL DEFAULT '{}'"),
+                        ("domains", "data_mode", "TEXT NOT NULL DEFAULT 's3'"),
+                        ("datasets", "shared", "INTEGER NOT NULL DEFAULT 0")):   # 19/10: dataset dùng chung của lĩnh vực mềm (dev / cán bộ)
         if col not in cols(t):
             c.execute(f"ALTER TABLE {t} ADD COLUMN {col} {ddl}")
     if c.execute("SELECT COUNT(*) FROM domains").fetchone()[0] == 0:   # hai domain có sẵn, không xoá được
@@ -42,10 +47,17 @@ def _migrate(c: sqlite3.Connection) -> None:
         c.execute("INSERT INTO domains(id,name,kind,engine,user_upload,sort) VALUES (2,'Trò chuyện chung','soft','friendly',1,1)")
     if not c.execute("SELECT 1 FROM domains WHERE engine='abi'").fetchone():   # lĩnh vực ABI (docs/PLAN_ABI_LINH_VUC.md): tìm theo engine, KHÔNG cố định id
         c.execute("INSERT INTO domains(name,kind,engine,guardrail,sort) VALUES (?,?,?,?,?)", (ABI_DOMAIN_NAME, "hard", "abi", ABI_GUARDRAIL, 2))
+    if not c.execute("SELECT 1 FROM domains WHERE engine='flm'").fetchone():   # lĩnh vực FLM (system4/flm): tìm theo engine, KHÔNG cố định id
+        c.execute("INSERT INTO domains(name,kind,engine,guardrail,sort) VALUES (?,?,?,?,?)", (FLM_DOMAIN_NAME, "hard", "flm", FLM_GUARDRAIL, 3))
     if "model" not in cols("strict_nodes"):
         c.execute("ALTER TABLE strict_nodes ADD COLUMN model TEXT NOT NULL DEFAULT ''")
+    if "rules_only" not in cols("user_prefs"):   # G3.3: "Chỉ trả lời bằng luật" theo tài khoản
+        c.execute("ALTER TABLE user_prefs ADD COLUMN rules_only INTEGER NOT NULL DEFAULT 0")
     if "context" not in cols("feedback_log"):
         c.execute("ALTER TABLE feedback_log ADD COLUMN context TEXT NOT NULL DEFAULT '{}'")
+    if "qkey" not in cols("feedback_log"):   # dùng lại câu đã 👍 (answer_cache.py): câu hỏi chuẩn hoá, rỗng = không dùng lại được
+        c.execute("ALTER TABLE feedback_log ADD COLUMN qkey TEXT NOT NULL DEFAULT ''")
+    c.execute("CREATE INDEX IF NOT EXISTS feedback_qkey ON feedback_log(engine, qkey)")
     added = False
     for col, ddl in (("parent_id", "INTEGER"), ("meta", "TEXT NOT NULL DEFAULT '{}'"),
                      ("feedback", "INTEGER NOT NULL DEFAULT 0")):
@@ -195,7 +207,7 @@ def get_conversation(cid: str) -> dict | None:
 
 
 def rename_conversation(cid: str, title: str) -> None:
-    run("UPDATE conversations SET title=? WHERE id=?", (title.strip()[:60] or NEW_TITLE, cid))
+    run("UPDATE conversations SET title=? WHERE id=?", (mask_pii(title).strip()[:60] or NEW_TITLE, cid))
 
 
 def set_pinned(cid: str, pinned: bool) -> None:
@@ -203,7 +215,7 @@ def set_pinned(cid: str, pinned: bool) -> None:
 
 
 def set_title_if_new(cid: str, text: str) -> None:
-    run("UPDATE conversations SET title=? WHERE id=? AND title=?", (text.strip()[:60] or NEW_TITLE, cid, NEW_TITLE))
+    run("UPDATE conversations SET title=? WHERE id=? AND title=?", (mask_pii(text).strip()[:60] or NEW_TITLE, cid, NEW_TITLE))
 
 
 def delete_conversation(cid: str) -> None:
@@ -220,15 +232,21 @@ def _msg(r: dict) -> dict:
 
 
 def add_message(cid: str, role: str, content: str, status: str = "done", parent_id: int | None = None,
-                meta: dict | None = None) -> int:
-    """Thêm tin vào sau parent_id và đặt nó làm cuối nhánh đang xem."""
+                meta: dict | None = None, pii_from: str = "") -> int:
+    """Thêm tin vào sau parent_id và đặt nó làm cuối nhánh đang xem.
+    G1.3: tin người dùng được che CCCD/SĐT; tin trả lời chỉ che các số có trong pii_from (câu người dùng của lượt đó)."""
+    if role == "user":
+        content = mask_pii(content)
+    else:
+        content, meta = _scrub(content, pii_from), _scrub(meta, pii_from)
     mid = run("INSERT INTO messages(conversation_id,role,content,status,parent_id,meta) VALUES (?,?,?,?,?,?)",
               (cid, role, content, status, parent_id, json.dumps(meta or {}, ensure_ascii=False)))
     run("UPDATE conversations SET current_leaf=? WHERE id=?", (mid, cid))
     return mid
 
 
-def update_message(mid: int, content: str, status: str, meta: dict) -> None:
+def update_message(mid: int, content: str, status: str, meta: dict, pii_from: str = "") -> None:
+    content, meta = _scrub(content, pii_from), _scrub(meta, pii_from)
     run("UPDATE messages SET content=?, status=?, meta=? WHERE id=?",
         (content, status, json.dumps(meta, ensure_ascii=False), mid))
 
@@ -306,17 +324,29 @@ def mask_pii(text: str) -> str:
     return _mask(text)
 
 
-def log_feedback(engine: str, msg_key, user_id: int, domain_id, cid: str, prompt: str, answer: str, value: int, context: dict | None = None) -> None:
+def _mask_deep(obj):
+    from policy import mask_deep
+    return mask_deep(obj)
+
+
+def _scrub(obj, pii_from: str):
+    """G1.3: che đúng các số CCCD/SĐT có trong câu người dùng (pii_from) ở obj; không che số khác (mã thủ tục, số của cơ quan)."""
+    from policy import pii_tokens, scrub
+    return scrub(obj, pii_tokens(pii_from))
+
+
+def log_feedback(engine: str, msg_key, user_id: int, domain_id, cid: str, prompt: str, answer: str, value: int, context: dict | None = None,
+                 qkey: str = "") -> None:
     """Chụp (câu hỏi, câu trả lời, 👍/👎) vào feedback_log; value 0 thì xoá dòng. Đổi ý thì ghi đè, không tạo trùng.
     Câu hỏi và câu trả lời được che CCCD/SĐT trước khi ghi."""
     if value == 0:
         run("DELETE FROM feedback_log WHERE engine=? AND msg_key=?", (engine, str(msg_key)))
         return
     prompt, answer = mask_pii(prompt), mask_pii(answer)
-    run("INSERT INTO feedback_log(engine,msg_key,user_id,domain_id,conversation_id,prompt,answer,value,context) VALUES (?,?,?,?,?,?,?,?,?) "
+    run("INSERT INTO feedback_log(engine,msg_key,user_id,domain_id,conversation_id,prompt,answer,value,context,qkey) VALUES (?,?,?,?,?,?,?,?,?,?) "
         "ON CONFLICT(engine,msg_key) DO UPDATE SET value=excluded.value, prompt=excluded.prompt, answer=excluded.answer, "
-        "context=excluded.context, created_at=datetime('now')",
-        (engine, str(msg_key), user_id, domain_id, cid, prompt, answer, value, json.dumps(context or {}, ensure_ascii=False)))
+        "context=excluded.context, qkey=excluded.qkey, created_at=datetime('now')",
+        (engine, str(msg_key), user_id, domain_id, cid, prompt, answer, value, json.dumps(context or {}, ensure_ascii=False), qkey))
 
 
 def get_summary(cid: str) -> tuple[str, int]:
@@ -325,7 +355,7 @@ def get_summary(cid: str) -> tuple[str, int]:
 
 
 def set_summary(cid: str, text: str, upto: int) -> None:
-    run("UPDATE conversations SET summary=?, summary_upto=? WHERE id=?", (text, upto, cid))
+    run("UPDATE conversations SET summary=?, summary_upto=? WHERE id=?", (mask_pii(text), upto, cid))
 
 
 # ------------------------------------------------------------- bộ nhớ (NV2)
@@ -334,7 +364,7 @@ def list_memories(user_id: int) -> list[dict]:
 
 
 def add_memory(user_id: int, text: str, max_items: int) -> int:
-    mid = run("INSERT INTO memories(user_id,text) VALUES (?,?)", (user_id, text))
+    mid = run("INSERT INTO memories(user_id,text) VALUES (?,?)", (user_id, mask_pii(text)))
     run("DELETE FROM memories WHERE user_id=? AND id NOT IN (SELECT id FROM memories WHERE user_id=? ORDER BY id DESC LIMIT ?)",
         (user_id, user_id, max_items))   # quá giới hạn: bỏ điều cũ nhất
     return mid
@@ -355,6 +385,16 @@ def get_memory_mode(user_id: int) -> str:
 def set_memory_mode(user_id: int, mode: str) -> None:
     run("INSERT INTO user_prefs(user_id,memory_mode) VALUES (?,?) "
         "ON CONFLICT(user_id) DO UPDATE SET memory_mode=excluded.memory_mode", (user_id, mode))
+
+
+def get_rules_only(user_id: int) -> bool:
+    r = run("SELECT rules_only FROM user_prefs WHERE user_id=?", (user_id,), one=True)
+    return bool(r and r["rules_only"])
+
+
+def set_rules_only(user_id: int, on: bool) -> None:
+    run("INSERT INTO user_prefs(user_id,memory_mode,rules_only) VALUES (?,'',?) "
+        "ON CONFLICT(user_id) DO UPDATE SET rules_only=excluded.rules_only", (user_id, 1 if on else 0))
 
 
 # ------------------------------------------------------- dữ liệu người dùng (NV3)
@@ -378,31 +418,34 @@ def update_dataset(ds_id: int, **cols) -> None:
 
 
 _ELEVATED = ("dev", "can_bo")   # được dùng domain / dataset đã khoá
+# dataset dùng chung: mọi dataset của domain cứng; ở domain mềm chỉ cái có cờ shared (dev / cán bộ đặt, chỉ ở domain mềm không riêng ai)
+_SHARED = "(m.kind='hard' OR (d.shared=1 AND m.owner_id IS NULL))"
 
 
 def active_datasets(user_id: int, domain_id: int | None = None, role: str = "dev") -> list[dict]:
     """Bộ dữ liệu đang bật. domain_id None = mọi domain của riêng người này. Có domain_id: dataset RIÊNG của người này trong domain đó,
-    cộng dataset dùng chung của domain cứng (người dùng thường không thấy dataset đã khoá)."""
+    cộng dataset dùng chung (mọi dataset của domain cứng; dataset có cờ shared của domain mềm) — người dùng thường không thấy
+    dataset đã khoá."""
     if domain_id is None:
         return run("SELECT id, name, n_records FROM datasets WHERE user_id=? AND active=1 AND status='ready'", (user_id,), many=True)
     return run("SELECT d.id, d.name, d.n_records FROM datasets d JOIN domains m ON m.id=d.domain_id "
                "WHERE d.domain_id=? AND d.active=1 AND d.status='ready' "
-               "AND (d.user_id=? OR (m.kind='hard' AND (d.locked=0 OR ? IN ('dev','can_bo'))))", (domain_id, user_id, role), many=True)
+               f"AND (d.user_id=? OR ({_SHARED} AND (d.locked=0 OR ? IN ('dev','can_bo'))))", (domain_id, user_id, role), many=True)
 
 
 def visible_datasets(user: dict, domain_id: int) -> list[dict]:
-    """Danh sách hiện trong "Dữ liệu" của một domain: của mình + dùng chung của domain cứng (không thấy cái đã khoá nếu là Người dân)."""
+    """Danh sách hiện trong "Dữ liệu" của một domain: của mình + dùng chung (không thấy cái đã khoá nếu là Người dân)."""
     return run("SELECT d.*, u.username FROM datasets d JOIN users u ON u.id=d.user_id JOIN domains m ON m.id=d.domain_id "
-               "WHERE d.domain_id=? AND (d.user_id=? OR (m.kind='hard' AND (d.locked=0 OR ? IN ('dev','can_bo')))) ORDER BY d.id DESC",
+               f"WHERE d.domain_id=? AND (d.user_id=? OR ({_SHARED} AND (d.locked=0 OR ? IN ('dev','can_bo')))) ORDER BY d.id DESC",
                (domain_id, user["id"], user["role"]), many=True)
 
 
 def readable_dataset(user: dict, ds: dict) -> bool:
     """Xem được nội dung dataset: chủ, dev, hoặc dataset dùng chung của domain cứng mà mình được dùng."""
-    if ds["user_id"] == user["id"] or user["role"] == "dev":
+    if ds["user_id"] == user["id"] or user["role"] in _ELEVATED:   # dev + cán bộ quản lý dữ liệu ở bảng điều khiển
         return True
     d = get_domain(ds["domain_id"])
-    return bool(d and d["kind"] == "hard" and can_use_domain(user, d) and (not ds["locked"] or user["role"] in _ELEVATED))
+    return bool(d and (d["kind"] == "hard" or (ds.get("shared") and d["owner_id"] is None)) and can_use_domain(user, d) and (not ds["locked"] or user["role"] in _ELEVATED))
 
 
 # ------------------------------------------------------------------- domain
@@ -411,6 +454,23 @@ ABI_DOMAIN_NAME = "ABI – Trung tâm Ươm tạo"
 ABI_GUARDRAIL = ("Bạn là trợ lý tra cứu thông tin Trung tâm Ươm tạo Doanh nghiệp Nông nghiệp Công nghệ cao TP.HCM (ABI, web abi.com.vn). "
                  "Chỉ trả lời từ dữ liệu được cung cấp; không đoán số liệu, ngày giờ, tên người. Câu hỏi ngoài phạm vi trung tâm thì nói rõ "
                  "bạn chỉ hỗ trợ thông tin về trung tâm.")
+
+
+def s4_mode(d: dict | None) -> bool:
+    """Lĩnh vực Thủ tục (engine strict) đang ở chế độ "chỉ System 4": bỏ DB thủ tục của System 3, trả lời bằng pipeline Friendly
+    trên các bộ dữ liệu tải lên của lĩnh vực. Hai chế độ loại trừ nhau (leader 19/10): không trộn luật System 3 với dữ liệu tải lên."""
+    return bool(d) and d["engine"] == "strict" and d.get("data_mode") == "s4"
+
+
+def friendly_pipeline(d: dict | None) -> bool:
+    """Lĩnh vực trả lời bằng pipeline Friendly (server/chat.py): friendly, abi, flm (bảng FLM + đường nhanh), và Thủ tục ở chế độ System 4."""
+    return bool(d) and (d["engine"] in ("friendly", "abi", "flm") or s4_mode(d))
+
+
+FLM_DOMAIN_NAME = "FLM – Đề cương FPTU"
+FLM_GUARDRAIL = ("Bạn là trợ lý tra cứu khung chương trình và đề cương môn học của Trường Đại học FPT (dữ liệu từ flm.fpt.edu.vn, "
+                 "chế độ khách). Chỉ trả lời từ dữ liệu được cung cấp; không đoán số tín chỉ, trọng số, môn tiên quyết. Nói rõ dữ liệu "
+                 "là khung chương trình mới nhất của các ngành đã đồng bộ; câu hỏi ngoài phạm vi thì nói bạn chỉ hỗ trợ thông tin đề cương.")
 
 
 def get_domain(did: int | None) -> dict | None:
@@ -430,8 +490,23 @@ def visible_domains(user: dict) -> list[dict]:
     return rows
 
 
-def used_bytes(user_id: int) -> int:
-    return run("SELECT COALESCE(SUM(size_bytes),0) n FROM datasets WHERE user_id=?", (user_id,), one=True)["n"]
+def usage_parts(user_id: int, s3_store=None) -> dict:
+    """D12/G1.7: dung lượng của một người = tệp tải lên + nội dung tin nhắn Friendly + tin nhắn Strict (DB System 3, cả nhánh ẩn)."""
+    if s3_store is None:
+        from db import store as s3_store   # server/db/store.py của System 3 (thư mục server nằm trên sys.path)
+    ds = run("SELECT COALESCE(SUM(size_bytes),0) n FROM datasets WHERE user_id=?", (user_id,), one=True)["n"]
+    fr = run("SELECT COALESCE(SUM(length(CAST(m.content AS BLOB))),0) n FROM messages m JOIN conversations c ON c.id=m.conversation_id"
+             " WHERE c.user_id=?", (user_id,), one=True)["n"]
+    ids = set(strict_ids(user_id))
+    for cid in list(ids):
+        ids |= set(strict_branches(cid))
+    st = s3_store.messages_bytes(ids) if ids else 0
+    return {"datasets": ds, "friendly": fr, "strict": st}
+
+
+def used_bytes(user_id: int, s3_store=None) -> int:
+    """Tổng dung lượng tính vào hạn mức USER_QUOTA_MB (tệp + hội thoại, D12)."""
+    return sum(usage_parts(user_id, s3_store).values())
 
 
 def insert_records(ds_id: int, recs: list[dict]) -> list[int]:
@@ -488,7 +563,7 @@ def browse_records(ds_id: int, q: str = "", offset: int = 0, limit: int = 50) ->
 # ------------------------------------------------------- bộ công cụ dev (chi tiết câu trả lời)
 def save_trace(mid: int, cid: str, user_id: int, data: dict, keep: int) -> None:
     run("INSERT OR REPLACE INTO traces(message_id,conversation_id,user_id,data) VALUES (?,?,?,?)",
-        (mid, cid, user_id, json.dumps(data, ensure_ascii=False, default=str)))
+        (mid, cid, user_id, json.dumps(_mask_deep(data), ensure_ascii=False, default=str)))
     run("DELETE FROM traces WHERE message_id NOT IN (SELECT message_id FROM traces ORDER BY message_id DESC LIMIT ?)", (keep,))
 
 
@@ -496,7 +571,7 @@ def patch_trace(mid: int, key: str, value) -> None:
     r = run("SELECT data FROM traces WHERE message_id=?", (mid,), one=True)
     if r:
         d = json.loads(r["data"])
-        d[key] = value
+        d[key] = _mask_deep(value)
         run("UPDATE traces SET data=? WHERE message_id=?", (json.dumps(d, ensure_ascii=False, default=str), mid))
 
 

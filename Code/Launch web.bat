@@ -3,11 +3,13 @@ setlocal
 rem Start the web (System 3 Strict + System 4 Friendly) at http://127.0.0.1:8300 (close this window or press Ctrl+C to stop).
 set "REPO=%~dp0"
 set "REPO=%REPO:~0,-1%"
-for %%I in ("%REPO%\..") do set "PYROOT=%%~fI\pyroot"
+for %%I in ("%REPO%\..") do set "PYROOT=%%~fI\pyroot_merge"
 
 if not exist "%REPO%\.venv\Scripts\python.exe" goto :nosetup
 if not exist "%PYROOT%\system3\server\main.py" goto :nosetup
-if not exist "%REPO%\data\runtime\system3.db" goto :nosetup
+rem Procedures database: Strict reads the built database of the active version (data\runtime\knowledge, built by setup or,
+rem the first time after an update, by the server at startup); data\runtime\system3.db is the System-3-only fallback.
+if not exist "%REPO%\data\runtime\knowledge\manifest.json" if not exist "%REPO%\data\runtime\system3.db" goto :nosetup
 
 set "PYTHONPATH=%PYROOT%"
 set "PYTHONIOENCODING=utf-8"

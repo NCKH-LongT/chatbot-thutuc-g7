@@ -197,7 +197,9 @@ with TestClient(main.app) as c:
                 {"plan": "", "answer": "Chào bạn, mình có thể giúp gì?", "ask_back": False, "choices": []}]
     ev = chat("Chào bạn")
     m = last(ev)
-    assert any(e["type"] == "restart" for e in ev) and m["meta"]["small_talk"] == "forced" and m["content"].startswith("Chào bạn"), m
+    assert any(e["type"] == "checking" for e in ev) and m["meta"]["small_talk"] == "forced" and m["content"].startswith("Chào bạn"), m
+    shown = "".join(e["text"] for e in ev if e["type"] == "delta")
+    assert shown == "Thông tin này không có trong dữ liệu.", shown   # chỉ bản đầu hiện dần
     # ai_only: tin AI
     setv(GREETING_MODE="ai_only")
     answers.append({"plan": "", "small_talk": True, "answer": "Cảm ơn bạn nhé!", "ask_back": False, "choices": [], "sources": []})
@@ -242,7 +244,8 @@ with TestClient(main.app) as c:
                 {"plan": "", "answer": "Dữ liệu không có số hotline.", "ask_back": False, "choices": [], "sources": []}]
     ev = chat("Số điện thoại tổng đài là gì?")
     m = last(ev)
-    assert any(e["type"] == "restart" for e in ev) and m["meta"]["grounding"]["items"] == ["1900 8888 99"], m["meta"]
+    assert any(e["type"] == "checking" for e in ev) and m["meta"]["grounding"]["items"] == ["1900 8888 99"], m["meta"]
+    assert m["content"] == "Dữ liệu không có số hotline." and len(m["versions"]) == 2 and m["meta"]["revised_from"]["id"] == m["versions"][0], m
     assert "1900 8888 99" in prompts[-1][-1]["content"] or "1900 8888 99" in prompts[-1][0]["content"]
     setv(GROUNDING_CHECK="off")
 
@@ -278,6 +281,16 @@ with TestClient(main.app) as c:
     # mặc định từ NV5 (cấu hình thắng bộ đo): mọi tính năng bật cùng lúc
     settings.reset(list(nv5_off.OFF))
     assert settings.get("JSON_PLAN_FIRST") and settings.get("GREETING_MODE") == "code_first"
+    # từ 18/10 đường nhanh (fastpath/) cũng bật mặc định: câu tra trường rõ ràng do code trả lời, không gọi AI (đợi biên dịch xong)
+    from system3.system4.server import fastpath
+    t0 = time.time()
+    while (fastpath.get(d["id"]) or {}).get("status") not in ("ready", "error"):
+        assert time.time() - t0 < 60
+        time.sleep(0.2)
+    n_prompts = len(prompts)
+    m = last(chat("Ngày sinh của bạn Tô Đức Hiếu?"))
+    assert "3/1/2020" in m["content"] and m["meta"]["sources"] and m["meta"].get("fast_path") and len(prompts) == n_prompts, m
+    settings.save({"FASTPATH_ENABLED": False})   # phần còn lại: lời dặn của đường cũ khi mọi tính năng NV5 bật
     answers.append({"plan": "tra ngày sinh", "answer": "Bạn Tô Đức Hiếu sinh ngày 3/1/2020 [1].", "ask_back": False, "choices": [], "sources": [1]})
     m = last(chat("Ngày sinh của bạn Tô Đức Hiếu?"))
     assert "3/1/2020" in m["content"] and m["meta"]["sources"] and not m["meta"].get("grounding"), m

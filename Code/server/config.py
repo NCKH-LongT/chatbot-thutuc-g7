@@ -42,7 +42,7 @@ DB_PATH = Path(_str("S3_DB_PATH", str(SERVER_DIR / "runtime" / "system3.db")))
 SCHEMA_PATH = SERVER_DIR / "db" / "schema.sql"
 
 OLLAMA_HOST = _str("OLLAMA_HOST", "http://127.0.0.1:11434")
-LLM_MODEL = _str("LLM_MODEL", "qwen3:4b")
+LLM_MODEL = _str("LLM_MODEL", "qwen3:4b-instruct-2507-q4_K_M")   # D9: một model không suy nghĩ cho cả hai hệ (Launch web.bat đặt giống)
 LLM_NUM_CTX = _int("LLM_NUM_CTX", 8192)
 LLM_KEEP_ALIVE = _str("LLM_KEEP_ALIVE", "30m")
 LLM_TIMEOUT = _int("LLM_TIMEOUT", 120)
@@ -65,8 +65,11 @@ LLM_THINK = _bool("LLM_THINK", False)      # qwen3: False = tắt thinking
 SHOWN_MAX = _int("S3_SHOWN_MAX", 2)                # số thủ tục đã hiển thị còn nhớ (trước: không giới hạn, tới 8)
 HISTORY_MESSAGES = _int("S3_HISTORY_MESSAGES", 3)  # số tin gần nhất đưa vào ngữ cảnh lượt sau (trước: 10)
 TRACE_KEEP = _int("S3_TRACE_KEEP", 300)            # chi tiết (turn_traces) giữ bao nhiêu lượt gần nhất toàn hệ thống
-# Hàng đợi: mặc định 1 worker (GPU 6 GB). Chạy song song: đặt S3_QUEUE_CONCURRENCY=N VÀ OLLAMA_NUM_PARALLEL=N cho Ollama (xem eval/measure_parallel.py)
+# G3.1 (D15): phần LUẬT chạy song song (RULE_WORKERS luồng), chỉ lời gọi LLM xếp hàng GPU chung (server/core/gpu.py).
+# Số chỗ GPU: S3_QUEUE_CONCURRENCY / S4_CONCURRENCY (mặc định 1, card 6 GB). Card lớn: đặt N VÀ OLLAMA_NUM_PARALLEL=N cho Ollama.
 QUEUE_CONCURRENCY = _int("S3_QUEUE_CONCURRENCY", 1)
+RULE_WORKERS = _int("S3_RULE_WORKERS", 8)   # G3.4: 4 -> 8 (đo tải 10 người: lượt chỉ-luật phải chờ worker đang giữ lượt chờ GPU)
+STRICT_GPU_WAIT = float(_str("S3_STRICT_GPU_WAIT", "3.0"))   # giây: bước sinh chữ của Strict chờ GPU tối đa chừng này rồi trả bản code
 QUEUE_MAX_DEPTH = _int("QUEUE_MAX_DEPTH", 20)
 QUEUE_JOB_TIMEOUT = _int("QUEUE_JOB_TIMEOUT", 180)
 

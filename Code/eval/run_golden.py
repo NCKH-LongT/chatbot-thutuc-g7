@@ -10,13 +10,16 @@ import collections, json, os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import answer_adapter  # noqa: E402
+import stamp  # noqa: E402
 import rank_metrics as rm  # noqa: E402
 
-args = [a for a in sys.argv[1:] if not a.startswith("--")]
+args = [a for i, a in enumerate(sys.argv[1:], 1) if not a.startswith("--") and sys.argv[i - 1] not in ("--by", "--limit")]
 dom = args[0] if args else "thu-tuc"
 by = sys.argv[sys.argv.index("--by") + 1] if "--by" in sys.argv else "status"
 path = os.path.join(HERE, "golden", dom + ".jsonl")
 cases = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
+if "--limit" in sys.argv:   # thử nhanh trên mẫu nhỏ (không phải lượt đo chính thức)
+    cases = cases[: int(sys.argv[sys.argv.index("--limit") + 1])]
 if not cases:
     sys.exit(f"{dom}: golden set rỗng (chưa có bộ có đáp án)")
 
@@ -29,8 +32,11 @@ if any(c["expected"].get("list_domain") for c in cases):
 
 
 def list_row(c):
-    txt = _list_request(c["question"])
-    names = [l.split(". ", 1)[1] for l in (txt or "").splitlines() if l[:1].isdigit() and ". " in l]
+    import listsql   # G4.2: text-to-SQL khi bật LLM (S3_USE_LLM=1); tắt LLM -> liệt kê gần đúng như cũ
+    from orchestrator import _answer_llm
+    ls = listsql.answer(c["question"], _answer_llm())
+    txt = ls["text"] if ls else _list_request(c["question"])
+    names = ls["names"] if ls else [l.split(". ", 1)[1] for l in (txt or "").splitlines() if l[:1].isdigit() and ". " in l]
     ok = [bool(_conn.execute("select 1 from procedures where name=? and domain like ?", (n, "%" + c["expected"]["list_domain"] + "%")).fetchone()) for n in names]
     return dict(id=c["id"], status=c["status"], source=c["source"], type=c["type"], beh="answer", got="answer" if txt else "none", beh_ok=bool(names),
                 scored=False, multi=False, all_ok=False, fields_chk=False, fields_ok=False, top1=False, top3=False, ms=None,
@@ -72,12 +78,40 @@ def rank_of(exp, out):
     return sum(rr) / len(rr), sum(nd) / len(nd)
 
 
+# G2.3: mã trong đáp án (không gian mã của bản Gốc) -> mã tương đương trong DB đang đo (proc_lineage). Ca có mã không ghép
+# được thì LOẠI khỏi bảng (in số ca loại theo status), không tính là sai.
+from system3.data import api as _dapi   # noqa: E402
+_lc = _dapi.connect()
+_have = {r[0] for r in _lc.execute("SELECT proc_id FROM procedures WHERE status='active'")}
+_lin = _dapi.lineage(_lc)
+excluded = collections.Counter()
+
+
+def remap(exp):
+    """-> (exp với mã tương đương, đủ mã?)"""
+    ok = True
+    tasks = []
+    for t in exp.get("tasks", []):
+        ps = []
+        for p in t["proc_ids"]:
+            q = p if p in _have else _lin.get(p)
+            if q:
+                ps.append(q)
+            else:
+                ok = False
+        tasks.append({**t, "proc_ids": ps})
+    return {**exp, "tasks": tasks}, ok
+
+
 for c in cases:
     if c["expected"].get("list_domain"):
         rows.append(list_row(c))
         continue
+    exp, ok = remap(c["expected"])
+    if not ok:
+        excluded[c["status"]] += 1
+        continue
     out = answer_adapter.adapter(replay(c["turns"]))
-    exp = c["expected"]
     ids = {p for t in exp["tasks"] for p in t["proc_ids"]}
     tops = [t["proc_id"] for t in out["tasks"] if t.get("proc_id")]
     cands = [x for t in out["tasks"] for x in t.get("candidates", [])]
@@ -118,9 +152,12 @@ def table(key):
 
 
 md = table(by)
+if excluded:
+    md += ("\n\nloại khỏi bảng (đáp án có mã không còn trong DB này và không ghép được qua proc_lineage): "
+           + ", ".join(f"{k} {v}" for k, v in sorted(excluded.items())) + f" (tổng {sum(excluded.values())})")
 lr = [x for x in rows if "dom_prec" in x]
 if lr:
     md += f"\n\nliệt kê: {sum(x['beh_ok'] for x in lr)}/{len(lr)} câu có trả danh sách; trung bình {sum(x['dom_prec'] for x in lr) / len(lr):.0%} mục trong danh sách đúng lĩnh vực được hỏi."
 print(md)
 os.makedirs(os.path.join(HERE, "results"), exist_ok=True)
-json.dump({"domain": dom, "by": by, "table_md": md, "rows": rows}, open(os.path.join(HERE, "results", f"golden_{dom}.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+json.dump({"domain": dom, "by": by, "stamp": stamp.stamp(), "excluded_unmapped": dict(excluded), "table_md": md, "rows": rows}, open(os.path.join(HERE, "results", f"golden_{dom}.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)

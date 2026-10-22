@@ -43,9 +43,9 @@ MIN_PASSWORD_LENGTH = 6
 BUSINESS_NAME = 'Team 7'
 BUSINESS_DESCRIPTION = ''
 FRIENDLY_MODEL = 'qwen3:4b-instruct-2507-q4_K_M'
-DEFAULT_ANSWER_MODE = 'fast'
 FRIENDLY_TEMPERATURE = 0.2
 FRIENDLY_NUM_CTX = 8192
+FRIENDLY_NUM_PREDICT = 1500
 FRIENDLY_HISTORY_MESSAGES = 20
 FRIENDLY_TIMEOUT = 120
 FRIENDLY_QUEUE_MAX = 20
@@ -56,6 +56,7 @@ MEMORY_DEFAULT_MODE = 'explicit'
 MEMORY_MAX_ITEMS = 50
 SUMMARY_TRIGGER = 0.6
 GUARDRAILS = SEED_GUARDRAILS
+INJECTION_GUARD = True
 USER_QUOTA_MB = 1024
 MAX_UPLOAD_MB = 200
 ACTIVE_WARN_DATASETS = 5
@@ -74,7 +75,6 @@ WEBSEARCH_MODEL = 'qwen3:4b-instruct-2507-q4_K_M'
 KB_NOT_FOUND_MESSAGE = 'Thông tin này không có trong các bộ dữ liệu đang bật nên chúng tôi không thể trả lời. Bạn có thể hỏi cụ thể hơn về nội dung trong dữ liệu, hoặc tắt bộ dữ liệu để trò chuyện chung.'
 EMBED_MODEL = 'bge-m3'
 TRACE_KEEP = 1000
-THINK_MODEL = 'qwen3:4b'
 KEEP_MODELS_LOADED = True
 PROMPT_CACHE_ORDER = True
 FAST_FORMAT = 'json'
@@ -87,15 +87,30 @@ AMBIGUITY_CHECK = True
 CHOICE_CHECK = True
 AMBIGUITY_MAX = 5
 TABLE_TOOL = True
+ANSWER_CACHE = True
+ANSWER_CACHE_DAYS = 30
 SEARCH_FOLLOWUP = True
 RERANK_RESCUE = True
 STRICT_BUSINESS_FACTS = True
 JSON_PLAN_FIRST = True
 ABI_SYNC_HOURS = 6
 ABI_CODE_ANSWER = True
-ABI_REMOTE_RAG = False
-ABI_REMOTE_MAX_PER_5MIN = 3
+ABI_API_KEY = ''
 ABI_BOT_CONTACT = ''
+FLM_PROGRAMS = 'BIT_SE, BIT_AI'
+FASTPATH_ENABLED = True
+FASTPATH_LLM_CUES = True
+FASTPATH_MIN_PASS = 0.9
+FASTPATH_AGGREGATE = False
+GUEST_ENABLED = True
+LIMIT_GUEST_PER_MIN = 3
+LIMIT_GUEST_PER_DAY = 20
+LIMIT_USER_PER_MIN = 10
+LIMIT_USER_PER_DAY = 200
+LIMIT_CANBO_PER_MIN = 30
+LIMIT_CANBO_PER_DAY = 2000
+LIMIT_DEV_PER_MIN = 60
+LIMIT_DEV_PER_DAY = 10000
 # ==== HẾT MẶC ĐỊNH ====
 
 # Danh sách cài đặt hiện trên panel. type: str | text (nhiều dòng) | int | float | bool | choice | rules
@@ -117,6 +132,9 @@ SETTINGS = [
     dict(key="GUARDRAILS", type="rules", group="Guardrail", label="Luật chặn / lời dặn",
          help="Chặn: trả lời cố định, không gọi AI. Lời dặn: thêm quy tắc cho AI khi tin nhắn chứa cụm từ (trống = luôn). "
               "Thay câu trả lời: câu trả lời chứa cụm từ thì thay. Cụm từ cách nhau bởi |."),
+    dict(key="INJECTION_GUARD", type="bool", group="Guardrail", label="Chặn chèn lệnh (bộ dò của Strict)",
+         help="Bật: câu đòi lộ lời dặn hệ thống, bỏ qua hướng dẫn, developer mode, jailbreak, quên vai trò… bị chặn bằng câu trả lời cố định, "
+              "không gọi AI (cùng bộ dò với chế độ Strict). Tắt nếu chặn nhầm."),
     dict(key="LANG_FALLBACK_APOLOGY", type="str", group="Ngôn ngữ", label="Câu xin lỗi khi người dùng không viết tiếng Việt",
          help="Chỉ hỗ trợ tiếng Việt: câu này được đặt đầu câu trả lời, sau đó AI trả lời bằng tiếng Việt."),
     dict(key="CLARIFY_MAX", type="int", group="Hội thoại", label="Số lần hỏi lại tối đa", min=0, max=5,
@@ -147,7 +165,7 @@ SETTINGS = [
          help="Chọn model KHÔNG suy nghĩ (vd. qwen3:4b-instruct-2507-q4_K_M). qwen3:4b hay viết suy luận vào câu trả lời; nếu khác \"Model dùng chung\" thì Ollama đổi model nên chậm thêm vài giây."),
     dict(key="WEBSEARCH_TIMEOUT", type="int", group="Dữ liệu (Chuyên gia)", label="Tìm web: chờ tối đa (giây)", min=2, max=30),
     dict(key="EVIDENCE_CHARS", type="int", group="Dữ liệu (Chuyên gia)", label="Độ dài mỗi đoạn gửi cho AI (ký tự)", min=200, max=4000,
-         help="Ngắn hơn = trả lời nhanh hơn nhưng có thể thiếu chi tiết."),
+         help="Ngắn hơn = trả lời nhanh hơn nhưng có thể thiếu chi tiết. Không bao giờ ngắn hơn \"Độ dài mỗi đoạn văn bản\": đoạn văn bản luôn được gửi trọn."),
     dict(key="KB_NOT_FOUND_MESSAGE", type="text", group="Dữ liệu (Chuyên gia)", label="Câu trả lời khi dữ liệu không có thông tin",
          help="Chế độ Chuyên gia: tìm không thấy đoạn nào liên quan mà AI vẫn tự trả lời bằng kiến thức chung -> thay bằng câu này."),
     dict(key="EMBED_MODEL", type="str", group="Dữ liệu (Chuyên gia)", label="Model tìm theo nghĩa (Ollama)",
@@ -156,16 +174,13 @@ SETTINGS = [
          help="Chi tiết (tìm kiếm, lời dặn, suy nghĩ ẩn…) cho nút 🔍 Soi; mỗi câu khoảng 10-20 KB. Câu cũ hơn tự xoá."),
     dict(key="FRIENDLY_MODEL", type="str", group="AI (Friendly)", label="Model dùng chung (Strict + Friendly)",
          help="Chọn trong danh sách model đã có trong Ollama. Dùng cho Friendly (trả lời nhanh, bộ nhớ, tóm tắt) VÀ bước LLM của Strict, nên đổi qua lại hai chế độ không phải nạp lại model. Gợi ý: qwen3:4b-instruct-2507-q4_K_M (không suy nghĩ)."),
-    dict(key="THINK_MODEL", type="str", optional=True, group="AI (Friendly)", label="Model Suy nghĩ kỹ (cho Friendly mode)",
-         help="Model cho \"Suy nghĩ kỹ\" (phải biết suy nghĩ, vd. qwen3:4b). Để trống = dùng model trả lời nhanh. Khác model trả lời thì card 6 GB chỉ chứa được một, mỗi lần đổi qua lại Ollama nạp lại khoảng 7 giây (đo: eval/measure_ollama_reload.py)."),
-    dict(key="DEFAULT_ANSWER_MODE", type="choice", choices=["fast", "think"], group="AI (Friendly)",
-         label="Chế độ trả lời mặc định",
-         help="fast = trả lời nhanh (~1-3 giây, không suy nghĩ). think = suy nghĩ kỹ (~30 giây). Người dùng vẫn bật/tắt "
-              "\"Suy nghĩ kỹ\" cạnh ô nhập và bấm \"Trả lời nhanh\" để ngắt khi đang suy nghĩ."),
     dict(key="FRIENDLY_TEMPERATURE", type="float", group="AI (Friendly)", label="Độ sáng tạo (temperature)",
          min=0.0, max=1.5, help="Thấp = ổn định, cao = đa dạng hơn."),
     dict(key="FRIENDLY_NUM_CTX", type="int", group="AI (Friendly)", label="Độ dài ngữ cảnh (token)", min=2048, max=32768,
          help="Nên giữ 8192 như System 3: khác nhau thì Ollama phải nạp lại model (~13 giây) mỗi khi đổi Strict/Friendly."),
+    dict(key="FRIENDLY_NUM_PREDICT", type="int", group="AI (Friendly)", label="Số token tối đa mỗi câu trả lời", min=200, max=8000,
+         help="Trần độ dài câu trả lời (khoảng 1 token ~ 3–4 ký tự). Test hợp đồng Ollama thấy model đôi khi lặp chữ không dừng: "
+              "có trần thì câu trả lời dừng thay vì chạy tới hết hạn."),
     dict(key="FRIENDLY_HISTORY_MESSAGES", type="int", group="AI (Friendly)", label="Số tin nhắn cũ gửi kèm",
          min=0, max=200, help="Bao nhiêu tin gần nhất của hội thoại được gửi cho AI để giữ ngữ cảnh."),
     dict(key="FRIENDLY_TIMEOUT", type="int", group="AI (Friendly)", label="Thời gian chờ tối đa (giây)", min=10, max=600),
@@ -199,6 +214,11 @@ SETTINGS = [
          help="Bật: nút lựa chọn do AI nghĩ ra chỉ hiện nếu bộ dữ liệu đang bật có đoạn khớp (mỗi nút tốn thêm một lần tìm, khoảng 0,5-2 giây tuỳ máy). Tắt: hiện mọi nút AI đưa."),
     dict(key="AMBIGUITY_MAX", type="int", group="Tốc độ & độ chính xác", label="Trùng tên: tối đa N bản ghi", min=2, max=10,
          help="Khớp nhiều hơn số này thì coi là từ chung (vd. \"giấy phép\"), không hỏi lại."),
+    dict(key="ANSWER_CACHE", type="bool", group="Tốc độ & độ chính xác", label="Dùng lại câu trả lời đã được 👍",
+         help="Bật: ai đó hỏi Y CHANG một câu đã được 👍 thì trả ngay câu trả lời đó, không chờ AI. Chỉ áp cho câu đầu hội thoại, "
+              "AI chung (không bộ dữ liệu riêng, không tìm web), không có điều nhớ của người dùng, không chứa CCCD/SĐT. "
+              "Có người 👎 bản dùng lại thì thôi dùng; đổi model / tên doanh nghiệp / guardrail thì câu cũ không được dùng."),
+    dict(key="ANSWER_CACHE_DAYS", type="int", group="Tốc độ & độ chính xác", label="Dùng lại câu đã 👍 trong bao nhiêu ngày", min=1, max=365),
     dict(key="TABLE_TOOL", type="bool", group="Tốc độ & độ chính xác", label="Công cụ bảng (đếm / tổng / liệt kê)",
          help="Bật: câu hỏi kiểu \"bao nhiêu bạn nữ\", \"liệt kê tất cả\", \"tổng\" -> AI đổi câu hỏi thành phép lọc, code tính trên TOÀN BỘ bảng. "
               "Thêm khoảng 1-2 giây cho các câu này."),
@@ -213,19 +233,52 @@ SETTINGS = [
     dict(key="JSON_PLAN_FIRST", type="bool", group="Tốc độ & độ chính xác", label="Buộc AI lập kế hoạch trước khi trả lời",
          help="Bật: đặt tên trường JSON a_plan, c_answer… để kế hoạch ẩn luôn được viết TRƯỚC câu trả lời (Ollama 0.40 không giữ thứ tự "
               "trường; khi tắt, model hay viết câu trả lời trước nên kế hoạch không có tác dụng). Chữ đầu hiện chậm hơn khoảng 0,5-0,8 giây."),
+    dict(key="FASTPATH_ENABLED", type="bool", group="Tốc độ & độ chính xác", label="Đường nhanh: trả lời bằng code từ dữ liệu đã biên dịch",
+         help="Bật: lúc nạp tệp, hệ thống biên dịch bảng (kiểu cột, tên trường, cách hỏi) và tự kiểm; câu tra cứu rõ ràng (trường của một dòng, "
+              "đếm / liệt kê có điều kiện, câu nối tiếp) được code trả lời trong vài mili giây, không gọi AI. Câu không chắc vẫn đi đường cũ "
+              "(tìm kiếm + AI). Mỗi lĩnh vực tắt riêng được bằng \"fast_path\": false trong hồ sơ lĩnh vực."),
+    dict(key="FASTPATH_LLM_CUES", type="bool", group="Tốc độ & độ chính xác", label="Đường nhanh: nhờ AI đặt tên trường lúc nạp",
+         help="Bật: lúc nạp, AI được gọi MỘT lần mỗi bảng để dịch tên cột (vd. executing_agency -> cơ quan thực hiện) và gợi ý cách người dùng hỏi; "
+              "code lọc lại gợi ý (bỏ giá trị trong ô, chữ chung, gợi ý trùng nhiều trường). Tắt: chỉ dùng tên cột."),
+    dict(key="FASTPATH_AGGREGATE", type="bool", group="Tốc độ & độ chính xác", label="Đường nhanh: cả câu đếm / liệt kê",
+         help="Tắt (mặc định, leader chọn 18/10): code chỉ trả lời câu tra một dòng, câu nối tiếp, hỏi lại khi trùng tên, trích văn bản; câu đếm / "
+              "liệt kê đi đường cũ (tìm kiếm + AI + công cụ bảng). Lý do: trên bộ mù cửa hàng, tra một dòng đúng 14/14 nhưng đếm / liệt kê chỉ 1/6 "
+              "(docs/SYSTEM4_DUONG_NHANH.md mục F). Bật: code tính cả đếm / liệt kê (nhanh hơn, có thể sai trên dữ liệu nhiều bảng)."),
+    dict(key="FASTPATH_MIN_PASS", type="float", group="Tốc độ & độ chính xác", label="Đường nhanh: ngưỡng bài tự kiểm", min=0.5, max=1.0,
+         help="Lúc nạp, code tự sinh câu hỏi + đáp án từ chính dữ liệu và chạy thử. Bảng nào đạt dưới ngưỡng này ở một loại câu (tra trường / "
+              "đếm-liệt kê / văn bản) thì loại câu đó tắt cho bảng ấy, câu hỏi đi đường cũ."),
     dict(key="ABI_SYNC_HOURS", type="int", group="Lĩnh vực ABI (abi.com.vn)", label="Tự đồng bộ abi.com.vn mỗi (giờ)", min=0, max=168,
-         help="Kéo lại dữ liệu từ các API chính thức chủ web đã cho phép. 0 = tắt (vẫn bấm \"Đồng bộ ngay\" được). "
-              "Thoả thuận với chủ web: quét 6 tiếng một lần, nên đặt 1–5 vẫn tính là 6. Lần đầu khoảng 3 phút, các lần sau chỉ tải phần đổi."),
+         help="Kéo lại dữ liệu của abi.com.vn (bản thật) từ các API chính thức chủ web đã cho phép; staging chỉ đồng bộ khi bấm nút. "
+              "0 = tắt (vẫn bấm \"Đồng bộ\" được). Thoả thuận với chủ web: quét 6 tiếng một lần, nên đặt 1–5 vẫn tính là 6. "
+              "Dữ liệu đổi thì thành phiên bản mới; mỗi nguồn giữ 2 phiên bản mới nhất."),
     dict(key="ABI_CODE_ANSWER", type="bool", group="Lĩnh vực ABI (abi.com.vn)", label="Trả lời bằng code khi hiểu trọn câu hỏi",
          help="Bật: câu đếm / liệt kê / theo thời gian (sự kiện sắp diễn ra, số phòng ban, số cán bộ, liên hệ…) do code tính và trả lời, "
               "không gọi AI, không thể bịa. Tắt: code vẫn tính, AI diễn đạt lại."),
-    dict(key="ABI_REMOTE_RAG", type="bool", group="Lĩnh vực ABI (abi.com.vn)", label="Hỏi thêm trợ lý của web khi không tìm thấy",
-         help="Bật: dữ liệu đồng bộ không có đoạn nào khớp -> hỏi trợ lý RAG của abi.com.vn (POST /rag/query). Trợ lý đó bị giới hạn "
-              "khoảng 4 câu / vài phút và có lúc trả lời sai (vd. số phòng ban), nên mặc định tắt."),
-    dict(key="ABI_REMOTE_MAX_PER_5MIN", type="int", group="Lĩnh vực ABI (abi.com.vn)", label="Trợ lý của web: tối đa số câu / 5 phút",
-         min=1, max=30, help="Vượt thì bỏ qua bước hỏi trợ lý web. Gặp báo \"chạm hạn mức\" thì tự nghỉ 5 phút."),
+    dict(key="ABI_API_KEY", type="str", optional=True, secret=True, group="Lĩnh vực ABI (abi.com.vn)", label="Khoá API của abi.com.vn",
+         help="Chủ web cấp (gửi bằng header Authorization: Bearer, dùng cho cả abi.com.vn và staging). Chỉ lưu ở runtime/settings.json "
+              "trên máy này, không bao giờ ghi vào config.py / git; biến môi trường ABI_API_KEY (nếu có) được ưu tiên."),
     dict(key="ABI_BOT_CONTACT", type="str", optional=True, group="Lĩnh vực ABI (abi.com.vn)", label="Liên hệ của nhóm gửi kèm khi gọi API",
          help="Chủ web yêu cầu User-Agent định danh: \"AHBI-Assistant-Bot/1.0 (+liên hệ)\". Điền email hoặc số điện thoại của nhóm; "
               "để trống thì dùng link GitHub của dự án. Email / điện thoại riêng của cán bộ trung tâm KHÔNG bao giờ được hiển thị "
               "(thoả thuận với chủ web; bỏ ngay khi tải về)."),
+    dict(key="FLM_PROGRAMS", type="str", group="Lĩnh vực FLM (flm.fpt.edu.vn)", label="Ngành lấy từ FLM (tiền tố mã khung chương trình)",
+         help="Cách nhau bởi dấu phẩy, vd. \"BIT_SE, BIT_AI\". Mỗi lần đồng bộ lấy khung chương trình MỚI NHẤT của mỗi ngành (bỏ bản _FNO) "
+              "cùng đề cương các môn. Đồng bộ mở một cửa sổ Chrome riêng ở trang captcha của FLM: dev tự tích captcha (chế độ khách, "
+              "không đăng nhập). Mỗi ngành khoảng 50 môn, ~100 request, 1 request/giây."),
+    dict(key="GUEST_ENABLED", type="bool", group="Giới hạn sử dụng", label="Cho dùng thử không cần đăng nhập (khách)",
+         help="Trang đăng nhập có nút \"Dùng thử không cần đăng nhập\". Khách chỉ trò chuyện được (không tải dữ liệu, không 👍/👎, "
+              "không bộ nhớ); hội thoại của khách chỉ nằm trong RAM, xoá sau 24 giờ hoặc khi tắt server. Tắt: khách đang dùng bị mời đăng nhập."),
+    dict(key="LIMIT_GUEST_PER_MIN", type="int", group="Giới hạn sử dụng", label="Khách: số câu hỏi mỗi phút", min=1, max=60,
+         help="Mỗi IP được gấp 5 lần (nhiều khách dùng chung mạng). Khách luôn chỉ có 1 câu đang trả lời, tối đa 1000 ký tự mỗi câu."),
+    dict(key="LIMIT_GUEST_PER_DAY", type="int", group="Giới hạn sử dụng", label="Khách: số câu hỏi mỗi ngày", min=1, max=10000,
+         help="Làm mới lúc 0 giờ. Hết lượt thì mời đăng nhập / đăng ký."),
+    dict(key="LIMIT_USER_PER_MIN", type="int", group="Giới hạn sử dụng", label="Người dân: số câu hỏi mỗi phút", min=1, max=600,
+         help="Một câu hỏi = tin mới, sửa tin hoặc tạo lại câu trả lời. Luôn chỉ có 1 câu đang trả lời, tối đa 4000 ký tự mỗi câu."),
+    dict(key="LIMIT_USER_PER_DAY", type="int", group="Giới hạn sử dụng", label="Người dân: số câu hỏi mỗi ngày", min=1, max=100000),
+    dict(key="LIMIT_CANBO_PER_MIN", type="int", group="Giới hạn sử dụng", label="Cán bộ: số câu hỏi mỗi phút", min=1, max=600,
+         help="Tối đa 3 câu đang trả lời cùng lúc."),
+    dict(key="LIMIT_CANBO_PER_DAY", type="int", group="Giới hạn sử dụng", label="Cán bộ: số câu hỏi mỗi ngày", min=1, max=100000),
+    dict(key="LIMIT_DEV_PER_MIN", type="int", group="Giới hạn sử dụng", label="Dev: số câu hỏi mỗi phút", min=1, max=600,
+         help="Tối đa 5 câu đang trả lời cùng lúc. Bench / đo tải tự tắt giới hạn (S4_RATE_LIMIT=0)."),
+    dict(key="LIMIT_DEV_PER_DAY", type="int", group="Giới hạn sử dụng", label="Dev: số câu hỏi mỗi ngày", min=1, max=1000000),
 ]

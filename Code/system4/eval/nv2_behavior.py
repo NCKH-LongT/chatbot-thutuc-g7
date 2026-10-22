@@ -9,7 +9,6 @@ import json
 import os
 import re
 import sys
-import threading
 import time
 from pathlib import Path
 
@@ -29,12 +28,9 @@ EMPATHY = ("xin lỗi", "rất tiếc", "hiểu", "thông cảm", "chia sẻ", "
 results, timings, filtered = [], [], {"letters": 0, "other": 0, "retries": 0}
 
 
-def chat(text, cid=None, mode=None, interrupt_after=None):
-    """mode=None -> mặc định của server (fast). interrupt_after=giây: bấm "Trả lời nhanh" sau từng ấy giây."""
-    t0, first, evs, pressed = time.time(), None, [], {}
+def chat(text, cid=None):
+    t0, first, evs = time.time(), None, []
     body = {"text": text, "conversation_id": cid}
-    if mode:
-        body["mode"] = mode
     with c.stream("POST", "/s4/chat", json=body) as r:
         buf = ""
         for chunk in r.iter_text():
@@ -44,17 +40,8 @@ def chat(text, cid=None, mode=None, interrupt_after=None):
                 if line.startswith("data: "):
                     ev = json.loads(line[6:])
                     evs.append(ev)
-                    if ev["type"] == "meta" and interrupt_after:
-                        def press(tid=ev["turn_id"]):
-                            pressed["t"] = time.time()
-                            httpx.post(f"{BASE}/s4/turns/{tid}/fast", cookies=dict(c.cookies), timeout=30)
-                        threading.Timer(interrupt_after, press).start()
-                    if ev["type"] == "switch":
-                        first = None   # chữ trước khi chuyển không tính
                     if ev["type"] == "delta" and first is None:
                         first = time.time() - t0
-                        if "t" in pressed:
-                            pressed["first_after"] = time.time() - pressed["t"]
                     if ev["type"] == "done":
                         timings.append((evs[0].get("mode"), first or 0, time.time() - t0))
     cid = evs[0]["conversation_id"]
@@ -63,7 +50,6 @@ def chat(text, cid=None, mode=None, interrupt_after=None):
     filtered["letters"] += f.get("letters", 0); filtered["other"] += f.get("other", 0)
     filtered["retries"] += 1 if msg["meta"].get("leak_retry") else 0
     mem = next((e for e in evs if e["type"] == "memory"), None)
-    msg["_pressed"] = pressed
     return cid, msg, mem
 
 
@@ -141,14 +127,11 @@ check("chế độ 'chỉ khi tôi bảo': 'hãy nhớ' -> nhớ", mem and any("
 _, m, mem = chat("Hãy quên chuyện mình có hai con đi")
 check("'hãy quên' -> xoá khỏi bộ nhớ", mem and any("con" in r for r in mem["removed"]), m, str(mem and mem["removed"]))
 
-# chế độ Suy nghĩ kỹ và nút "Trả lời nhanh"
-_, m, _ = chat("So sánh ưu và nhược điểm của việc tự học lập trình qua video và qua sách", mode="think")
-check("Suy nghĩ kỹ: trả lời đầy đủ", m["meta"].get("mode") == "think" and len(m["content"]) > 150 and "[[" not in m["content"], m,
-      f"chữ đầu sau {timings[-1][1]:.1f}s")
-_, m, _ = chat("Phân tích giúp mình nên học Python hay JavaScript trước", mode="think", interrupt_after=3)
-fa = m["_pressed"].get("first_after")
-check("'Trả lời nhanh' ngắt suy nghĩ và trả lời ngay", m["meta"].get("interrupted") and m["content"] and fa is not None and fa < 10, m,
-      f"chữ đầu {fa:.1f}s sau khi bấm" if fa is not None else "không có chữ sau khi bấm")
+# câu cần trả lời dài (D9, 18/10: bỏ chế độ suy nghĩ ~30 giây; chỉ còn chế độ trả lời nhanh)
+_, m, _ = chat("So sánh ưu và nhược điểm của việc tự học lập trình qua video và qua sách")
+check("câu so sánh: trả lời đầy đủ", len(m["content"]) > 150 and "[[" not in m["content"], m, f"chữ đầu sau {timings[-1][1]:.1f}s")
+_, m, _ = chat("Phân tích giúp mình nên học Python hay JavaScript trước")
+check("câu phân tích: chữ đầu dưới 10 giây", m["content"] and timings[-1][1] < 10, m, f"chữ đầu sau {timings[-1][1]:.1f}s")
 
 # chữ lạ trên toàn bộ câu trả lời
 all_msgs = []
@@ -169,9 +152,9 @@ def stats(mode):
     return {"n": len(ft), "first_median": ft[len(ft) // 2], "first_max": ft[-1], "total_median": tt[len(tt) // 2], "total_max": tt[-1]}
 
 
-summary = {"passed": n_pass, "total": len(results), "fast": stats("fast"), "think": stats("think"), "filtered": filtered}
+summary = {"passed": n_pass, "total": len(results), "fast": stats("fast"), "filtered": filtered}
 print(f"\n{n_pass}/{len(results)} PASS")
-for k in ("fast", "think"):
+for k in ("fast",):
     v = summary[k]
     if v:
         print(f"  {k}: {v['n']} câu · chữ đầu trung vị {v['first_median']:.1f}s (tối đa {v['first_max']:.1f}s) · "

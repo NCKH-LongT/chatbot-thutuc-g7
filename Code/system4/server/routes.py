@@ -7,7 +7,8 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import auth, chat as chat_turn, config, datasets, db, domains, export, memory, search, settings
+from core import aihealth
+from . import account, answer_cache, auth, chat as chat_turn, config, datasets, db, domains, export, guest, memory, ratelimit, search, settings
 
 
 class Credentials(BaseModel):
@@ -21,7 +22,7 @@ class ChatIn(BaseModel):
     conversation_id: str | None = None
     edit_of: int | None = None          # sửa tin người dùng này -> phiên bản mới
     regenerate_of: int | None = None    # tạo lại câu trả lời này -> phiên bản mới
-    mode: str | None = None             # fast | think; trống = DEFAULT_ANSWER_MODE
+    mode: str | None = None             # bỏ qua (D9: chỉ còn một chế độ trả lời); giữ để client cũ không lỗi
     websearch: bool = False             # nút "Tìm web": chỉ DuckDuckGo, không qua bộ dữ liệu
     domain_id: int | None = None        # domain của hội thoại MỚI (hội thoại có sẵn giữ domain của nó); trống = Trò chuyện chung
 
@@ -44,6 +45,7 @@ class DatasetPatch(BaseModel):
     active: bool | None = None
     name: str | None = None
     locked: bool | None = None   # chỉ dev: khoá = chỉ dev và cán bộ dùng
+    shared: bool | None = None   # dev / cán bộ, lĩnh vực mềm không riêng ai: mọi người dùng được lĩnh vực đều thấy (chỉ đọc)
 
 
 class MemoryModeIn(BaseModel):
@@ -68,6 +70,10 @@ def _user(request: Request) -> dict:
     if not u:
         raise HTTPException(401, "Cần đăng nhập")
     return u
+
+
+def _ip(request: Request) -> str:
+    return request.client.host if request.client else ""
 
 
 def _dev(request: Request) -> dict:
@@ -99,11 +105,16 @@ def make_router(s3_store, strict_list, drop_strict) -> APIRouter:
     @r.get("/public")
     def public(request: Request):
         """Cấu hình cho giao diện (không cần đăng nhập)."""
-        u = auth.user_from_cookie(request.cookies.get(auth.COOKIE))
+        u = auth.user_from_cookie(request.cookies.get(auth.COOKIE)) or guest.user_from_cookie(request.cookies.get(guest.COOKIE))
         return {"app_title": settings.get("APP_TITLE"), "default_mode": settings.get("DEFAULT_MODE"),
                 "signup_open": auth.signup_open(), "first_account": db.count_users() == 0,
                 "min_password_length": settings.get("MIN_PASSWORD_LENGTH"),
-                "friendly_model": settings.get("FRIENDLY_MODEL"), "default_answer_mode": settings.get("DEFAULT_ANSWER_MODE"),
+                "friendly_model": settings.get("FRIENDLY_MODEL"),
+                "cpu_mode": aihealth.cpu_only() if u else False,
+                "rules_only": bool(u) and u["role"] != "guest" and db.get_rules_only(u["id"]),
+                "guest_enabled": guest.enabled() and db.count_users() > 0,
+                "guest_limits": ratelimit.limits("guest"), "user_limits": ratelimit.limits("user"),
+                "limits": ratelimit.usage(u) if u else None,   # hạn mức của người đang xem + số câu đã hỏi hôm nay
                 "user": u}
 
     # ------------------------------------------------------- đăng nhập
@@ -111,6 +122,21 @@ def make_router(s3_store, strict_list, drop_strict) -> APIRouter:
         token, age = auth.new_session(u["id"])
         resp = JSONResponse({"user": {"id": u["id"], "username": u["username"], "role": u["role"]}})
         auth.set_cookie(resp, token, age)
+        resp.delete_cookie(guest.COOKIE, path="/")   # đăng nhập rồi thì thôi là khách (đăng xuất không quay về phiên khách cũ)
+        return resp
+
+    @r.post("/auth/guest")
+    def guest_start(request: Request):
+        """Dùng thử không cần đăng nhập: cookie khách ký HMAC, không tạo dòng nào trong DB. Đã có phiên khách còn hạn thì dùng tiếp."""
+        if not guest.enabled() or db.count_users() == 0:   # máy mới: tài khoản đầu tiên (dev) phải được tạo trước
+            raise HTTPException(403, "Chế độ khách đang tắt. Vui lòng đăng nhập hoặc đăng ký.")
+        u = guest.user_from_cookie(request.cookies.get(guest.COOKIE))
+        if u:
+            return {"user": u}
+        ratelimit.guest_new(_ip(request))
+        token = guest.new_token()
+        resp = JSONResponse({"user": guest.user_from_cookie(token)})
+        guest.set_cookie(resp, token)
         return resp
 
     @r.post("/auth/signup")
@@ -130,10 +156,17 @@ def make_router(s3_store, strict_list, drop_strict) -> APIRouter:
         return _login_response(u)
 
     @r.post("/auth/login")
-    def login(body: Credentials):
-        u = auth.verify(body.username.strip(), body.password)
+    def login(body: Credentials, request: Request):
+        name, ip = body.username.strip(), (request.client.host if request.client else "")
+        wait = auth.login_wait(name, ip)
+        if wait:   # G1.5: 5 lần sai / 10 phút theo (tên, IP)
+            raise HTTPException(429, f"Đăng nhập sai quá nhiều lần. Thử lại sau {(wait + 59) // 60} phút.",
+                                headers={"Retry-After": str(wait)})
+        u = auth.verify(name, body.password)
         if not u:
+            auth.login_failed(name, ip)
             raise HTTPException(401, "Sai tên đăng nhập hoặc mật khẩu")
+        auth.login_ok(name, ip)
         if u["disabled"]:
             raise HTTPException(403, "Tài khoản đã bị khoá")
         return _login_response(u)
@@ -143,6 +176,7 @@ def make_router(s3_store, strict_list, drop_strict) -> APIRouter:
         auth.end_session(request.cookies.get(auth.COOKIE))
         resp = JSONResponse({"ok": True})
         resp.delete_cookie(auth.COOKIE, path="/")
+        resp.delete_cookie(guest.COOKIE, path="/")
         return resp
 
     @r.get("/auth/me")
@@ -197,8 +231,11 @@ def make_router(s3_store, strict_list, drop_strict) -> APIRouter:
         db.set_feedback(mid, body.value)
         q = db.get_message(m["parent_id"]) if m.get("parent_id") else None
         conv = db.run("SELECT domain_id FROM conversations WHERE id=?", (cid,), one=True)
+        reuse = answer_cache.like_context(m["meta"])   # câu trả lời dùng lại được cho người khác hỏi y chang
         db.log_feedback("friendly", mid, request.state.user["id"], conv and conv["domain_id"], cid,
-                        q["content"] if q else "", m["content"], body.value, {"model": m["meta"].get("model") or settings.get("FRIENDLY_MODEL"), "reason": db.clean_reason(body.reason)})
+                        q["content"] if q else "", m["content"], body.value,
+                        {"model": m["meta"].get("model") or settings.get("FRIENDLY_MODEL"), "reason": db.clean_reason(body.reason), **reuse},
+                        qkey=answer_cache.qkey(q["content"]) if reuse and q else "")
         return {"ok": True}
 
     @r.patch("/conversations/{cid}")
@@ -245,8 +282,26 @@ def make_router(s3_store, strict_list, drop_strict) -> APIRouter:
             dom = db.get_domain(db.get_conversation(cid)["domain_id"])
         else:
             dom = db.get_domain(body.domain_id or 2)
-        if not dom or dom["engine"] not in ("friendly", "abi") or not db.can_use_domain(u, dom):   # abi: pipeline Friendly + nguồn abi.com.vn
+        if dom and dom["engine"] == "strict" and not db.s4_mode(dom):
+            raise HTTPException(409, "Lĩnh vực Thủ tục đang trả lời bằng System 3 (luật + DB thủ tục), không dùng hội thoại Friendly")
+        if not dom or not db.friendly_pipeline(dom) or not db.can_use_domain(u, dom):   # abi: pipeline Friendly + nguồn abi.com.vn
             raise HTTPException(403, "Bạn không dùng được lĩnh vực này")
+        if account.over_quota(u, s3_store):   # G1.7: hội thoại tính vào hạn mức dung lượng chung với dữ liệu tải lên
+            raise HTTPException(413, account.QUOTA_MESSAGE)
+        ticket = ratelimit.begin_turn(u, _ip(request), 0 if body.regenerate_of else len(body.text.strip()))   # 429 / 413 khi quá hạn mức
+        try:
+            text, user_mid, cid = user_turn(request, body, u, cid, dom)
+        except BaseException:   # tin không hợp lệ: trả lại lượt
+            ticket.refund()
+            raise
+        history = db.get_path(cid)[:-1]   # nhánh tới trước tin người dùng
+        return StreamingResponse(ratelimit.guarded(ticket, chat_turn.run(u, cid, user_mid, text, history, body.websearch,
+                                                                         allow_cache=not body.regenerate_of)),
+                                 media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    def user_turn(request: Request, body: ChatIn, u: dict, cid: str | None, dom: dict) -> tuple[str, int, str]:
+        """Tin người dùng của lượt này: tin mới / sửa tin (ghi tin mới) / tạo lại (dùng tin cũ). Trả (nội dung, id tin, hội thoại)."""
         if body.regenerate_of:
             m = own_message(request, cid, body.regenerate_of)
             if m["role"] != "assistant" or not m["parent_id"]:
@@ -269,24 +324,14 @@ def make_router(s3_store, strict_list, drop_strict) -> APIRouter:
                 parent = db.current_leaf(cid)
             user_mid = db.add_message(cid, "user", text, "done", parent)
             db.set_title_if_new(cid, text)
-        history = db.get_path(cid)[:-1]   # nhánh tới trước tin người dùng
-        mode = body.mode if body.mode in ("fast", "think") else settings.get("DEFAULT_ANSWER_MODE")
-        return StreamingResponse(chat_turn.run(u, cid, user_mid, text, history, mode, body.websearch), media_type="text/event-stream",
-                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
-
-    @r.post("/turns/{turn_id}/fast")
-    def answer_fast(turn_id: str, request: Request):
-        """Nút "Trả lời nhanh": dừng suy nghĩ của lượt đang chạy, trả lời ngay bằng chế độ Nhanh."""
-        if not chat_turn.interrupt(turn_id, _user(request)["id"]):
-            raise HTTPException(404, "lượt trả lời không còn chạy")
-        return {"ok": True}
+        return text, user_mid, cid
 
     # ------------------------------------------------ dữ liệu người dùng (NV3)
     def own_dataset(request: Request, ds_id: int) -> dict:
         """Chủ dataset, hoặc dev (2B: dev được mở nội dung)."""
         u = _user(request)
         ds = db.get_dataset(ds_id)
-        if not ds or (ds["user_id"] != u["id"] and u["role"] != "dev"):
+        if not ds or (ds["user_id"] != u["id"] and u["role"] not in db._ELEVATED):   # dev + cán bộ (bảng điều khiển)
             raise HTTPException(404, "không có bộ dữ liệu này")
         return ds
 
@@ -305,15 +350,18 @@ def make_router(s3_store, strict_list, drop_strict) -> APIRouter:
             mapping = {}
         return {k: d[k] for k in ("id", "user_id", "name", "filename", "size_bytes", "kind", "status", "progress", "message",
                                   "n_records", "created_at", "domain_id")} | {"active": bool(d["active"]), "mapping": mapping,
-                                                                              "locked": bool(d.get("locked")), "username": d.get("username")}
+                                                                              "locked": bool(d.get("locked")), "shared": bool(d.get("shared")),
+                                                                              "username": d.get("username")}
 
     @r.get("/datasets")
-    def list_datasets(request: Request, domain_id: int = 2):
+    def list_datasets(request: Request, domain_id: int = 2, uploaded: bool = False):
+        """uploaded=1: chỉ tệp tải lên (bỏ bộ dữ liệu do đồng bộ tự tạo, vd. phiên bản ABI) — thẻ "Dữ liệu tải thêm" của lĩnh vực cứng."""
         u = _user(request)
         dom = db.get_domain(domain_id)
         if not dom or not db.can_use_domain(u, dom):
             raise HTTPException(404, "không có lĩnh vực này")
-        return {"datasets": [ds_view(d) for d in db.visible_datasets(u, domain_id)], "quota": datasets.quota(u),
+        rows = [d for d in db.visible_datasets(u, domain_id) if not (uploaded and datasets.managed(d))]
+        return {"datasets": [ds_view(d) for d in rows], "quota": datasets.quota(u),
                 "active": datasets.active_summary(u["id"], domain_id, u["role"]), "formats": sorted(datasets.ingest.SUPPORTED),
                 "can_upload": domains.can_upload(u, dom), "domain": domains.view(u, dom)}
 
@@ -339,6 +387,9 @@ def make_router(s3_store, strict_list, drop_strict) -> APIRouter:
             raise HTTPException(422, str(e)) from None
         finally:
             await f.close()
+        if str(form.get("shared") or "") in ("1", "true") and domains.can_share(u, dom):   # tải lên là dùng chung luôn
+            db.update_dataset(d["id"], shared=1)
+            d = {**d, "shared": 1}
         return {"dataset": ds_view({**d, "username": u["username"]}), "active": datasets.active_summary(u["id"], domain_id, u["role"])}
 
     @r.patch("/datasets/{ds_id}")
@@ -350,6 +401,15 @@ def make_router(s3_store, strict_list, drop_strict) -> APIRouter:
             db.update_dataset(ds_id, locked=1 if body.locked else 0)
         if body.name is not None and body.name.strip():
             db.update_dataset(ds_id, name=body.name.strip()[:120])
+        if body.shared is not None:
+            dom = db.get_domain(ds["domain_id"])
+            if not dom or not domains.can_share(_user(request), dom):
+                raise HTTPException(403, "Chỉ dev / cán bộ đặt dùng chung, và chỉ ở lĩnh vực mềm không riêng ai")
+            db.update_dataset(ds_id, shared=1 if body.shared else 0)
+        if body.active is not None and datasets.synced(ds):   # lĩnh vực ABI: bật đúng phiên bản bằng nút chọn phiên bản
+            raise HTTPException(422, "Bộ dữ liệu ABI bật / tắt theo phiên bản: chọn phiên bản ở Quản lý lĩnh vực hoặc Quản trị → Dữ liệu ABI")
+        if body.active is not None and datasets.managed(ds) == "flm":
+            raise HTTPException(422, "Bộ dữ liệu FLM bật / tắt theo phiên bản: chọn phiên bản ở Quản lý lĩnh vực → FLM → Dữ liệu FLM")
         if body.active is not None:
             if body.active and not ds["active"]:
                 err = datasets.can_activate(ds["user_id"], ds)
@@ -361,6 +421,10 @@ def make_router(s3_store, strict_list, drop_strict) -> APIRouter:
     @r.delete("/datasets/{ds_id}")
     def delete_dataset(ds_id: int, request: Request):
         ds = own_dataset(request, ds_id)
+        if datasets.synced(ds):
+            raise HTTPException(422, "Bộ dữ liệu này thuộc một phiên bản ABI: xoá phiên bản ở Quản trị → Dữ liệu ABI")
+        if datasets.managed(ds) == "flm":
+            raise HTTPException(422, "Bộ dữ liệu này thuộc một phiên bản FLM: xoá phiên bản ở Quản lý lĩnh vực → FLM → Dữ liệu FLM")
         datasets.delete(ds)
         return {"ok": True, "active": datasets.active_summary(ds["user_id"], ds["domain_id"], "dev")}
 

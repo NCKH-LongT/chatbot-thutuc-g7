@@ -7,6 +7,7 @@ nên nhiều chỗ cũ không còn đúng. Khi tài liệu và code khác nhau, 
 ## 1. Model và chế độ
 | Tài liệu nói | Sự thật | Kiểm ở đâu |
 |---|---|---|
+| Mọi dòng dưới đây nhắc "Suy nghĩ kỹ", `qwen3:4b` (bản suy nghĩ), `THINK_MODEL`, `DEFAULT_ANSWER_MODE`, nút "Trả lời nhanh" / "Kỹ hơn" | **Đã bỏ hẳn 18/10 (G3.2, D9):** chỉ còn một chế độ trả lời (JSON, không suy nghĩ), một model `qwen3:4b-instruct-2507-q4_K_M` cho Strict + Friendly; cài đặt không tải `qwen3:4b` nữa. Các dòng đó chỉ còn giá trị lịch sử | `system4/tests/test_nv2.py` (kiểm route và hàm đã gỡ) |
 | `system4/README.md` "Lưu ý": `qwen3:4b` (bản luôn suy nghĩ) là model duy nhất; chế độ Nhanh ép JSON để model khỏi suy nghĩ | Trả lời nhanh (Friendly + Chuyên gia), bộ nhớ, tóm tắt dùng **`qwen3:4b-instruct-2507-q4_K_M`**, temperature **0,2** (bản không suy nghĩ). Chỉ **"Suy nghĩ kỹ"** dùng `qwen3:4b` (`THINK_MODEL`). Vẫn dùng khuôn JSON, nhưng để lấy các trường (kế hoạch, hỏi lại, nguồn), không còn để tắt suy nghĩ | `system4/server/config.py` khối MẶC ĐỊNH; `llm.py` (`think_model()`) |
 | `SYSTEM4_HANDOFF.md` §0: "Suy nghĩ kỹ + Strict vẫn `qwen3:4b`" | **Strict (System 3) dùng Instruct** khi chạy bằng `Launch web.bat` (đặt `LLM_MODEL`). Chạy `server/main.py` trực tiếp mà không đặt `LLM_MODEL` → Strict quay về `qwen3:4b` (mặc định của `server/config.py`, code System 3 không đổi) | `Launch web.bat` dòng 18; `server/config.py` dòng 45 |
 | `Set up first time.bat` đặt `LLM_MODEL=qwen3:4b` (bước 4) nhưng `Launch web.bat` đặt Instruct | Không mâu thuẫn: cài đặt tải **cả hai** — `qwen3:4b` cho "Suy nghĩ kỹ" (bước 4), Instruct cho Friendly + Strict (bước 6) | hai tệp `.bat` |
@@ -58,7 +59,8 @@ nên nhiều chỗ cũ không còn đúng. Khi tài liệu và code khác nhau, 
 | Kế hoạch nói | Sự thật (chi tiết: `SYSTEM4_ABI.md`) |
 |---|---|
 | "API chủ web đưa bị hư" (lời kể ban đầu) | Không hư: `/rag/query` chỉ nhận **POST**. Chạm hạn mức thì vẫn trả HTTP 201 với `responseKind = service_error`. Trợ lý đó trả lời sai số phòng ban |
-| §3.1 `store.py`: SQLite `runtime/abi/abi.db` | Dùng **`runtime/abi/data.json`**, đọc vào bộ nhớ: dữ liệu ~1,7 MB, ghi nguyên tử bằng một `os.replace`. Chưa cần SQL vì chưa làm text-to-SQL |
+| §3.1 `store.py`: SQLite `runtime/abi/abi.db` | Dùng tệp JSON đọc vào bộ nhớ (~1,7 MB, ghi nguyên tử). Từ 17/10 lưu **theo phiên bản**: `runtime/abi/versions/<id>/{raw,data}.json` + `versions.json`. Hai nguồn abi.com.vn + staging, mỗi nguồn giữ 2 bản mới nhất, cũ hơn tự xoá (`abi/versions.py`). Chưa cần SQL vì chưa làm text-to-SQL |
+| §3.1 `remote.py` (trợ lý RAG của web làm dự phòng), §3 "API công khai không cần khoá" | **Đã xoá `remote.py`** (17/10): leader cấm gọi AI của web vì tốn token của chủ web; `client.py` chặn cứng `/rag` và chỉ gọi GET. Từ 17/10 API dữ liệu **đòi khoá** (`Authorization: Bearer`, ⚙ `ABI_API_KEY`, chỉ lưu `runtime/settings.json`) |
 | §3.2 domain id 3 | Tìm theo **`engine = 'abi'`**: DB dev đã có id 3, 4 do người dùng tạo. Domain được tạo trong `db.init_db` khi chưa có |
 | §5 ngưỡng p90 ≤ 5 s | Câu code trả lời: ~0,1 s. Câu AI trả lời: **p90 7,5 s** (chưa đạt, phần lớn do AI viết dài) |
 | P5 text-to-SQL bảng rộng `abi_items` | **Chưa làm**: bộ đo 46 câu đạt 46/46 không cần |

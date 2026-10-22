@@ -2,6 +2,19 @@
 
 Mỗi mục có người chịu trách nhiệm quyết định. Cập nhật khi đóng.
 
+## Sau kế hoạch G0–G4 (18/10)
+| Mục | Tình trạng | Quyết định / người chịu trách nhiệm |
+|---|---|---|
+| Friendly chờ hàng GPU khi 10 người cùng dùng: p95 13,6 s (mục tiêu 10 s) | chấp nhận cho thí điểm (D17); câu đã 👍 hỏi y chang thì trả ngay (D18) | trưởng nhóm, 18/10 |
+| Lượt chỉ-luật khi 10 người dùng: p95 1,2 s (mục tiêu 0,5 s) — CPU dùng chung với Ollama + reranker | mở | trưởng nhóm |
+| Hỏi lại khi mơ hồ: bộ mù 38/76 (50%), chưa đạt 60%. Đã thử 8 cách (research/clarify/RESULTS.md); giữ M1+M2 (không gây hại) nhưng bộ mù không đổi — luật hỏi lại hỏi sai câu (thiếu 38, thừa 31) | mở | trưởng nhóm chọn hướng: tách bộ mù / rà nhãn / từ đồng nghĩa |
+| Câu thật ngoài phạm vi bị trả lời nhầm bằng một thủ tục không liên quan: 53/238 câu thật (research/clarify) | mở | — |
+| Thẻ hỏi tỉnh (D5) làm 9 ca bộ mù nhãn "trả lời" thành hỏi lại (nhãn viết trước D5) | có chủ ý; tắt bằng `S3_PROVINCE_CLARIFY=0` | trưởng nhóm: có sửa nhãn golden không |
+| Liệt kê / đếm text-to-SQL chỉ chạy khi có LLM; "liên quan đến X" có khi được hiểu là lĩnh vực thay vì chữ trong tên (3/45 ca bộ đo riêng) | mở, nhỏ | — |
+| Tệp biểu mẫu Cổng trả 0 byte nên không có bản lưu: trả tên mẫu + link trang thủ tục (D7) | có chủ ý | — |
+| Tên tỉnh cũ trước sáp nhập (Bình Dương…) không đổi sang tỉnh mới khi chọn bản riêng | mở | — |
+| Strict trong System 4 chưa hiện gợi ý "Nhớ tỉnh/thành" (chỉ web System 3 hiện) | mở, nhỏ | — |
+
 ## Bộ test 10 câu của nhóm (`eval/cases_team.json`): 8/10
 
 | Ca | Tình trạng | Quyết định |
@@ -25,12 +38,12 @@ Mỗi mục có người chịu trách nhiệm quyết định. Cập nhật khi
 | mơ hồ theo đối tượng hiếm trong dữ liệu thật; hồ sơ "người dân" gần như không bớt hỏi lại (hầu hết thủ tục khai "Công dân Việt Nam") | giới hạn của dữ liệu, không sửa được bằng code | ghi rõ ở README; không hứa hơn |
 | `procedure_subjects` có chỗ lệch với tên thủ tục: thu hẹp thẻ theo đối tượng có thể ẩn đúng thủ tục (vd đăng ký đất đai lần đầu cho hộ gia đình chỉ khai doanh nghiệp/Việt kiều) | mở; giảm nhẹ bằng luật "câu nêu rõ thì hồ sơ không can thiệp" và thẻ ghi "không thấy thì gõ tên thủ tục" | nhóm rà dữ liệu đối tượng nếu muốn bật mạnh hơn |
 | `pick` (bỏ hỏi, chọn ứng viên hợp đối tượng) có thể đổi đáp án so với ứng viên đứng đầu của truy hồi; câu trả lời luôn nói "Theo hồ sơ của bạn ... nếu chưa đúng, bạn nói lại nhé" | chấp nhận theo thiết kế; chưa đo trên câu thật | Nhân duyệt sau khi có câu hỏi thật |
-| danh sách tỉnh = 63 đơn vị trước sáp nhập 07/2025; tỉnh/xã chỉ hiển thị | chờ danh mục 34 tỉnh | mục 6 checklist |
+| danh sách tỉnh | **đóng (G4.4):** lấy từ dữ liệu (bản 3: 34 tỉnh); tỉnh trong hồ sơ chọn bản riêng của tỉnh | — |
 | đường `context_facts`/`session_facts` vẫn không được Planner luật tạo | không đổi ở Phase 26 (hồ sơ đi vào Policy) | — |
 
 ## Bước sinh chữ (Answer Composer)
 Bật mặc định (nhóm quyết); đã đo ở Phase 27 (`eval/P27_REPORT.md`). Không làm tụt chỉ số hồi quy nào; 0/64 lượt gọi chạm timeout 7 s sau khi rút gọn prompt (trước đó 3–8/64, phụ thuộc GPU bận). Còn lại:
-- **Giá trị cho người dùng chưa chứng minh được bằng luật**: bộ chấm luật cho thấy bật = bản code về đủ ý/đúng số/không đảo nghĩa/không bịa, chỉ hơn ở độ ngắn gọn (94% so với 71% đạt cả 5 tiêu chí, phần lớn do tiêu chí độ dài; bản code chép nguyên văn mục điều kiện nên dài). Chờ người chấm 20 ca (`eval/results/composer_sample20.md`).
+- **Giá trị cho người dùng chưa chứng minh được bằng luật**: bộ chấm luật cho thấy bật = bản code về đủ ý/đúng số/không đảo nghĩa/không bịa, chỉ hơn ở độ ngắn gọn (94% so với 71% đạt cả 5 tiêu chí, phần lớn do tiêu chí độ dài; bản code chép nguyên văn mục điều kiện nên dài). Chờ người chấm 20 ca (mẫu 20 ca cho người chấm (tạo lại bằng `python score_composer.py --name x --sample`; tệp kết quả không commit)).
 - Bước này chỉ kích hoạt khi Planner gán `conditions` hoặc quan hệ `compare`: ~9% câu DEV, ~3% câu ctx. **Phase 30 đã sửa nguyên nhân gốc của phần điều kiện "tự gán"** (~60% ca kích hoạt): `policy._match_conditions` so MỌI chữ của câu (cả chữ hư "là", "em", "muốn", cụm hỏi mục) với mục `condition_index`, nên một chữ hư đứng riêng trong một mục anh em là đủ "khớp"; nay chỉ so chữ nội dung và mảnh điều kiện của Planner phải thêm thông tin ngoài tên thủ tục (`policy.adds_info`). Số lượt gọi bước LLM trên DEV+ctx+p26+composer (813 ca): 53 -> 28 (`eval/p30_composer_trigger.py`); các mục điều kiện thật ("nhà thuê", "ủy quyền", "bộ đội", "ly hôn") còn nguyên (test `p30_clarify_test`). Hạn chế: bộ phân loại user/tự gán của script đo là xấp xỉ theo chữ; vẫn có thể khớp nhầm mục anh em khi người dùng nêu hoàn cảnh bằng chữ chung ("nhà thuê" ~ "nhà ở công vụ" đã hết, nhưng ví dụ khác có thể còn).
 - So sánh: LLM chủ yếu liệt kê dữ kiện từng thủ tục kèm trích dẫn, ít khi nêu điểm khác nhau rõ ràng; có thể nói chung chung ("cả hai đều yêu cầu...").
 - Ô nhiễm số đo: GPU dùng chung với ứng dụng khác nên p50/p95 dao động 2 lần giữa các lượt đo (cùng cấu hình). Model nguội (sau `ollama stop`/hết `LLM_KEEP_ALIVE`) cần > 14 s để nạp: nay lượt đó trả bản code ngay (không đợi hết 7 s) và nạp nền cho lượt sau.
@@ -45,7 +58,7 @@ Bật mặc định (nhóm quyết); đã đo ở Phase 27 (`eval/P27_REPORT.md`
 - Corpus nhóm chỉ bù **lệ phí** (15 thủ tục cổng không có lệ phí, khớp tên chính xác). Thời hạn và giấy tờ vẫn lấy từ cổng.
 - Phần lớn thủ tục (883 thủ tục) vẫn không có lệ phí; hệ thống nói "cổng không công bố", không suy ra miễn phí.
 
-## Khả năng chịu nhiễu đầu vào (`eval/perturb.py`, 99,4%)
+## Khả năng chịu nhiễu đầu vào (`eval/perturb.py`, 99,44%)
 - Còn lỗi khi: dính chữ 4-5 ký tự không có cặp trong tên thủ tục ("tờgì"), dính qua chữ số ("số3"), lời chào đứng trước nhãn ("Chào bạn, câu hỏi 2:"), bỏ dấu làm đổi nghĩa ("sổ đỏ" thành "so do").
 
 ## Điểm yếu số một

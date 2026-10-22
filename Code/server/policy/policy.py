@@ -22,6 +22,12 @@ from system3.retrieval.context import strip_labels
 from system3.retrieval.query import EXTRA_SYN, FIELD_CUES, PRE_SYN, STOP, _DROP_PHRASES
 
 MAX_TASKS = 3
+PROVINCE_OPTS = 6                  # G4.4: thẻ hỏi tỉnh hiện tối đa 6 tỉnh có bản riêng + "Áp dụng chung toàn quốc"
+NATIONWIDE = "*"                   # tỉnh của hội thoại = dùng bản chung toàn quốc
+NATIONWIDE_LABEL = "Áp dụng chung toàn quốc"
+# M2: dấu hiệu "đang hỏi về một thủ tục" (chữ đã bỏ dấu) và các thủ tục gợi ý khi câu không nêu thủ tục nào
+_ASKS_PROC = re.compile(r"(?<![a-z])(thu tuc|giay to|ho so|lam giay|xin giay|le phi|bao lau|o dau|nop|can gi|can nhung gi|lam the nao|lam sao|tim hieu|thac mac|tu van)(?![a-z])")
+COMMON_PROCS = ("Thủ tục đăng ký khai sinh", "Đăng ký thường trú", "Thủ tục đăng ký kết hôn", "Thủ tục đăng ký khai tử")
 MAX_CHARS = 2000
 VERTICAL = {"Thuế": "cơ quan Thuế", "Hải quan": "cơ quan Hải quan"}
 
@@ -70,13 +76,14 @@ class Routed:
     clarify: dict | None = None        # {question, options[{label, proc_id}], allow_free_text}
     flags: list = field(default_factory=list)   # injection | overflow | truncated | plan_fallback
     behavior: str = "answer"           # answer | apologize | clarify | chitchat
+    province_note: dict | None = None  # G4.4: đã dùng bản của tỉnh nào / tỉnh đã nêu không có bản riêng
     memory_note: dict | None = None    # Phase 26: hồ sơ đã ảnh hưởng quyết định này {kind: pick|shrink|variant, subject, proc_id, procedure}
 
     def to_dict(self):
         return asdict(self)
 
 
-# FINAL-PRODUCT: [B3] hàm che PII đã có nhưng chỉ dùng cho trace; bản cuối gọi nó trước khi ghi messages.content/plan_json/session_facts/title (mục 2)
+# G1.3: gọi ở mọi điểm ghi (server/db/store.py, system4/server/db.py) và trước khi tìm web (server/core/websearch.py)
 def mask_pii(text: str) -> str:
     """Guardrail 9: che CCCD/CMND/SĐT trước khi ghi log.
     Chịu được dấu cách/gạch/chấm giữa các cụm số (xem _PII_RUN); không che số tiền lớn có đơn vị
@@ -100,6 +107,47 @@ def mask_pii(text: str) -> str:
         return raw
 
     return _PII_RUN.sub(_repl, text)
+
+
+def pii_tokens(text: str) -> list[tuple[str, str]]:
+    """G1.3: các chuỗi số mà mask_pii sẽ che trong `text` -> [(nguyên văn, nhãn [ID]/[SDT])], dài trước.
+    Dùng để che ĐÚNG những số người dùng đã gõ khi chúng bị lặp lại trong câu trả lời — không che cả câu trả lời
+    (dữ liệu Cổng có mã dịch vụ công 1.000080.01 và số điện thoại cơ quan, che sẽ làm hỏng)."""
+    out = []
+    for m in _PII_RUN.finditer(text or ""):
+        lab = mask_pii(m.group(0)) if not _PII_CURRENCY_AFTER.match(m.string[m.end():m.end() + 12]) else m.group(0)
+        if lab != m.group(0):
+            out.append((m.group(0).strip(), lab.strip()))
+            digits = re.sub(r"\D", "", m.group(0))
+            if digits != m.group(0).strip():
+                out.append((digits, lab.strip()))   # LLM hay chép lại số đã bỏ dấu cách/gạch
+    return sorted(set(out), key=lambda t: -len(t[0]))
+
+
+def scrub(obj, tokens: list[tuple[str, str]]):
+    """Thay các chuỗi trong tokens ở mọi chuỗi con của obj (str / dict / list). tokens rỗng -> trả nguyên obj."""
+    if not tokens:
+        return obj
+    if isinstance(obj, str):
+        for raw, lab in tokens:
+            obj = obj.replace(raw, lab)
+        return obj
+    if isinstance(obj, dict):
+        return {k: scrub(v, tokens) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [scrub(v, tokens) for v in obj]
+    return obj
+
+
+def mask_deep(obj):
+    """mask_pii trên mọi chuỗi trong obj (str / dict / list). Dùng cho dữ liệu xuất phát từ lời người dùng (plan, facts, trace, state)."""
+    if isinstance(obj, str):
+        return mask_pii(obj)
+    if isinstance(obj, dict):
+        return {k: mask_deep(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [mask_deep(v) for v in obj]
+    return obj
 
 
 def pre_check(text: str) -> dict:
@@ -335,7 +383,7 @@ def _user_words_keep(user_text: str) -> list:
 
 def check(plan, *, user_text: str, conn=None, facts: list[str] | None = None,
           known_procs: list[str] | None = None, flags: list[str] | None = None, no_clarify: bool = False,
-          memory: dict | None = None) -> Routed:
+          memory: dict | None = None, province: str | None = None) -> Routed:
     """plan: planner.Plan (hoặc đối tượng có .tasks/.needs_clarification/.source).
     memory (Phase 26): {subjects:set[str], label} từ hồ sơ người dùng; None = hành vi y hệt trước Phase 26."""
     conn = conn or data_api.connect()
@@ -474,6 +522,48 @@ def check(plan, *, user_text: str, conn=None, facts: list[str] | None = None,
                 out.behavior = "clarify"
                 out.memory_note = note
                 return out
+
+    # --- M2 (hỏi lại khi mơ hồ, 18/10): hỏi về thủ tục mà KHÔNG nêu thủ tục nào ("cần giấy tờ gì", "thủ tục bao gồm những giấy tờ nào",
+    # "tôi muốn làm giấy tờ cho con") ở đầu hội thoại -> hỏi lại thay vì xin lỗi. Có chủ đề trước đó thì Planner đã kế thừa, không tới đây.
+    if (os.environ.get("S3_CLARIFY_NOPROC", "1") == "1" and not no_clarify and not known_procs and len(raw) == 1 and len(out.tasks) == 1
+            and out.tasks[0].route == "apologize" and out.tasks[0].reason in ("off_topic", "not_found")
+            and not (getattr(raw[0], "procedure_query", "") or "").strip() and _ASKS_PROC.search(fold(user_text))):
+        opts = []
+        for nm in COMMON_PROCS:
+            r = conn.execute("SELECT proc_id, name FROM procedures WHERE name=? AND status='active' AND province IS NULL", (nm,)).fetchone()
+            if r:
+                opts.append({"label": r[1][:110], "proc_id": r[0]})
+        if opts:
+            out.clarify = {"question": "Bạn muốn hỏi về thủ tục nào? Bạn gõ tên thủ tục (ví dụ: đăng ký khai sinh, đăng ký thường trú) hoặc chọn bên dưới.",
+                           "options": opts, "allow_free_text": True, "kind": "no_procedure"}
+            out.behavior = "clarify"
+            return out
+
+    # --- G4.4 (D5): thủ tục có bản riêng của tỉnh mà chưa biết người dùng ở tỉnh nào -> hỏi tỉnh; đã biết -> dùng bản của tỉnh đó.
+    # province: tỉnh của hội thoại / câu này ('*' = chung toàn quốc; None = chưa biết). Tắt bằng S3_PROVINCE_CLARIFY=0.
+    if len(out.tasks) == 1 and out.tasks[0].route == "direct" and os.environ.get("S3_PROVINCE_CLARIFY", "1") == "1":
+        rt = out.tasks[0]
+        pv = data_api.province_versions(conn, rt.procedure_id)
+        province = province or next(iter(data_api.provinces_in(user_text)), None)   # tỉnh nêu trong câu (bộ chấm gọi thẳng Policy)
+        if pv and province and province != NATIONWIDE:
+            if province in pv:
+                nm = conn.execute("SELECT name FROM procedures WHERE proc_id=?", (pv[province],)).fetchone()[0]
+                out.province_note = {"province": province, "from": rt.procedure_id, "proc_id": pv[province]}
+                rt.procedure_id, rt.procedure_label = pv[province], nm
+                rt.variants = {}
+                have = {r["field"]: r["status"] for r in data_api.fields(conn, rt.procedure_id, list(rt.field_status))}
+                rt.field_status = {f: have.get(f, "unknown") for f in rt.field_status}
+            else:
+                out.province_note = {"province": province, "none": True}
+        elif pv and not province and not no_clarify:
+            order = data_api.provinces(conn)
+            provs = sorted(pv, key=lambda p: order.index(p) if p in order else 999)[:PROVINCE_OPTS]
+            opts = [{"label": p, "proc_id": pv[p]} for p in provs] + [{"label": NATIONWIDE_LABEL, "proc_id": rt.procedure_id}]
+            more = f" (có {len(pv)} tỉnh/thành có bản riêng; tỉnh khác bạn gõ tên)" if len(pv) > PROVINCE_OPTS else " (tỉnh khác bạn gõ tên)"
+            out.clarify = {"question": f"Thủ tục «{rt.procedure_label[:90]}» có bản riêng của một số tỉnh/thành. Bạn làm thủ tục ở tỉnh/thành nào?{more}",
+                           "options": opts, "allow_free_text": True, "kind": "province"}
+            out.behavior = "clarify"
+            return out
 
     # --- clarify: tối đa 1 thẻ/lượt; chỉ khi LLM xin VÀ chưa có thủ tục nào chắc (guardrail 4, 6)
     chosen = [t for t in out.tasks if t.route == "direct"]

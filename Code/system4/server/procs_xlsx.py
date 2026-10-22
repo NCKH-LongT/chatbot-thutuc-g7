@@ -71,8 +71,8 @@ CHILD = [
      "Form/attachment metadata on the portal (files not downloaded)"),
 ]
 DERIVED = [
-    ("Fees (clean)", "fees_clean", ["kind", "amount_value", "amount_text", "fee_type", "submission_method"],
-     "Fees normalised by data/build.py: kind = numeric / text_only / none"),
+    ("Fees (clean)", "fees_clean", ["kind", "amount_value", "amount_text", "fee_type", "submission_method", "currency", "amount_vnd", "amount_ok"],
+     "Fees normalised by data/build.py: kind = numeric / text_only / none; currency VND/USD/'' (unknown); amount_vnd = amount fixed against the text (\"20.000\" read as 20); amount_ok = 0 means only the portal text is shown"),
     ("Field chunks", "field_chunks", ["field", "case_ordinal", "text", "status"],
      "The 12 answer fields per procedure the bot quotes from, with present / absent_confirmed / unknown status"),
     ("Conditions", "condition_index", ["type", "text", "source"], "Who / situation / status / place conditions extracted for matching"),
@@ -90,7 +90,7 @@ def filename(version: int | None) -> str:
     return f"du_lieu_strict_v{version or 0}_{datetime.date.today().isoformat()}.xlsx"
 
 
-def db_from_jsonl(src: Path, out: Path, timeout: int = 1800) -> int:
+def db_from_jsonl(src: Path, out: Path, timeout: int = 1800, env_extra: dict | None = None) -> int:
     """Dựng DB thủ tục từ một procedures.jsonl bằng chính system3.data.build (không sửa), ra tệp `out`; trả số thủ tục.
     Chạy tiến trình con qua run_server.register_package nên không phụ thuộc tên thư mục / PYTHONPATH."""
     out.unlink(missing_ok=True)
@@ -98,7 +98,7 @@ def db_from_jsonl(src: Path, out: Path, timeout: int = 1800) -> int:
             "import run_server; run_server.register_package(root); "
             "import system3.data.load as L, system3.data.build as B; p = pathlib.Path(sys.argv[1]); "
             "B.load_snapshot = lambda path=None: L.load_snapshot(p); raise SystemExit(B.main())")
-    env = dict(os.environ, S3_DATA_DB=str(out), PYTHONIOENCODING="utf-8")
+    env = dict(os.environ, S3_DATA_DB=str(out), PYTHONIOENCODING="utf-8", **(env_extra or {}))
     r = subprocess.run([sys.executable, "-c", code, str(src), str(REPO)], env=env, capture_output=True, text=True,
                        encoding="utf-8", errors="replace", timeout=timeout)
     if r.returncode != 0 or not out.is_file():
@@ -207,6 +207,8 @@ def _build(con, out: Path, versions: list[dict], version: int | None, active: in
 
     # ---- sheet System 3 tự dựng, nối bằng proc_id
     for title, tbl, cols, _ in DERIVED:
+        have = {r[1] for r in con.execute(f"PRAGMA table_info({tbl})")}
+        cols = [c for c in cols if c in have]      # DB dựng trước G1.1 chưa có currency/amount_vnd/amount_ok
         ws = wb.create_sheet(title)
         all_cols = ["proc_id", "procedure name (via proc_id)"] + cols
         header(ws, all_cols, {"proc_id": FILL_KEY, "procedure name (via proc_id)": FILL_LOOK},

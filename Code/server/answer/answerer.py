@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 
 from system3.data import api as data_api
+from system3.data import fees as fee_norm
 from system3.data.textutil import fold
 
 from .llm_answer import budgeted, compose, render
@@ -89,15 +90,14 @@ def _jacc(a: str, b: str) -> float:
 
 def _fees_text(conn, pid: str) -> tuple[str, str]:
     """-> (text, status). status: present | absent_confirmed. KHÔNG suy ra miễn phí khi nguồn rỗng."""
-    rows = [dict(r) for r in conn.execute(
-        "SELECT kind, amount_value, amount_text, fee_type, submission_method FROM fees_clean WHERE proc_id=?", (pid,))]
+    rows = [dict(r) for r in conn.execute("SELECT * FROM fees_clean WHERE proc_id=?", (pid,))]
     seen, lines = set(), []
     for r in rows:
         if r["kind"] == "none":
             continue
-        txt = (r["amount_text"] or "").strip()
-        if r["kind"] == "numeric" and r["amount_value"]:
-            txt = f"{int(r['amount_value']):,}".replace(",", ".") + " đồng" + (f" — {txt}" if txt else "")
+        if "amount_ok" not in r:      # DB dựng trước G1.1: chuẩn hoá tại chỗ (không có currency_id -> xét chữ)
+            r.update(fee_norm.normalize(r["amount_value"], r["amount_text"], None))
+        txt = fee_norm.display(r) if r["kind"] == "numeric" else (r["amount_text"] or "").strip()
         if txt and txt not in seen:
             seen.add(txt)
             lines.append(f"- {txt}" + (f" ({r['submission_method']})" if r["submission_method"] else ""))
@@ -138,11 +138,45 @@ def _case_pick(chunks: list[dict], conds: list[str], label: str) -> list[dict]:
     return [c for c, sc in zip(chunks, scored) if best >= 0.6 and sc >= best - 0.01]
 
 
+FORMS_SHOW = 8
+_FORM_CUE = re.compile(r"theo mau|mau so|to khai|bieu mau|mau don")
+
+
+def _line(x: str, n: int = 160) -> str:
+    return x if len(x) <= n else x[:n - 1].rsplit(" ", 1)[0] + "…"
+
+
+def _forms_text(conn, pid: str) -> str:
+    """G4.7 (D7): tên các mẫu Cổng liệt kê + link trang thủ tục trên Cổng (nơi tải mẫu; Cổng không cho tải tệp trực tiếp nên không có bản lưu)."""
+    fs = data_api.forms(conn, pid)
+    r = conn.execute("SELECT portal_url FROM procedures WHERE proc_id=? AND status='active'", (pid,)).fetchone()
+    url = r[0] if r and r[0] else ""
+    if fs:
+        lines = [f"- {_line(x['desc']) if x['desc'] else x['file']}" + (f" (tệp: {x['file']})" if x["desc"] else "") for x in fs[:FORMS_SHOW]]
+        if len(fs) > FORMS_SHOW:
+            lines.append(f"- … và {len(fs) - FORMS_SHOW} mẫu khác")
+        return "\n".join(lines) + (f"\nTải mẫu tại trang thủ tục trên Cổng Dịch vụ công: {url}" if url else "")
+    # Cổng không đính kèm tệp mẫu: tên mẫu nằm trong thành phần hồ sơ ("Tờ khai ... theo mẫu")
+    named = []
+    for c in data_api.fields(conn, pid, ["components"]):
+        for line in c["text"].split("\n"):
+            if _FORM_CUE.search(fold(line)) and line.strip() not in named:
+                named.append(line.strip().lstrip("-+• "))
+    if not named or not url:
+        return ""
+    return ("Cổng Dịch vụ công không đính kèm tệp mẫu cho thủ tục này. Các giấy tờ phải làm theo mẫu (theo thành phần hồ sơ):\n"
+            + "\n".join(f"- {_line(x)}" for x in named[:FORMS_SHOW]) + f"\nXem mẫu và nộp hồ sơ tại trang thủ tục trên Cổng Dịch vụ công: {url}")
+
+
 def _field_text(conn, pid: str, f: str, status: str, conds: list[str] | None = None, label: str = "") -> tuple[str, str]:
     """-> (nội dung, trạng thái thực). Trạng thái 'unknown' không đồng nghĩa với 'không có'."""
     if f == "fees":
         txt, st = _fees_text(conn, pid)
         return txt, st
+    if f == "files":
+        txt = _forms_text(conn, pid)
+        if txt:
+            return txt, "present"
     chunks = [c for c in data_api.fields(conn, pid, [f]) if c["text"].strip()]
     if not chunks:
         return "", ("unknown" if status == "unknown" else "absent_confirmed")
@@ -295,6 +329,8 @@ def procedure_table(conn, pid: str) -> dict | None:
     for f in TABLE_FIELDS:
         if f == "fees":
             txt, st = _fees_text(conn, pid)
+        elif f == "files" and _forms_text(conn, pid):
+            txt, st = _forms_text(conn, pid), "present"
         else:
             ch = [c for c in data_api.fields(conn, pid, [f]) if c["text"].strip()]
             txt, st = "\n".join(c["text"].strip() for c in ch), "present"

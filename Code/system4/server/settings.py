@@ -48,6 +48,12 @@ def get(key: str):
     return o[key] if key in o else _defaults[key]
 
 
+def evidence_chars() -> int:
+    """Số ký tự mỗi đoạn gửi cho AI: không ngắn hơn một đoạn văn bản (CHUNK_CHARS). Trước 19/10 đoạn 900 ký tự bị cắt còn 700,
+    nên tìm trúng đoạn nhờ phần đuôi mà AI không thấy phần đó (vd. "Domain mềm: …" của Kế hoạch tuần tới.pdf)."""
+    return max(get("EVIDENCE_CHARS"), get("CHUNK_CHARS"))
+
+
 def validate(key: str, value):
     s = SPECS.get(key)
     if not s:
@@ -138,7 +144,17 @@ def reset(keys: list[str]) -> None:
         _overrides.clear(); _overrides.update(o)
 
 
+def _secret(k: str) -> bool:
+    return bool(SPECS.get(k, {}).get("secret"))
+
+
 def set_default(values: dict) -> None:
+    secrets = {k: v for k, v in values.items() if _secret(k)}
+    if secrets:   # khoá bí mật (vd. ABI_API_KEY) KHÔNG BAO GIỜ ghi vào config.py (có trên git): chỉ lưu ở runtime/settings.json
+        save(secrets)
+        values = {k: v for k, v in values.items() if not _secret(k)}
+        if not values:
+            return
     clean = _clean(values)
     with _lock:
         text = CONFIG_FILE.read_text(encoding="utf-8")
@@ -172,8 +188,9 @@ def set_default(values: dict) -> None:
 def describe() -> list[dict]:
     """Cho panel: mỗi cài đặt kèm giá trị đang dùng, mặc định, có đang ghi đè không."""
     o = _load_overrides()
-    return [{**s, "value": get(k), "default": _defaults[k], "overridden": k in o,
-             **({"options": ollama_models()} if k in ("FRIENDLY_MODEL", "THINK_MODEL", "WEBSEARCH_MODEL") else {})} for k, s in SPECS.items()]
+    return [{**s, "value": "" if s.get("secret") else get(k), "default": "" if s.get("secret") else _defaults[k], "overridden": k in o,
+             **({"is_set": bool(get(k))} if s.get("secret") else {}),   # khoá bí mật: không gửi giá trị ra trình duyệt
+             **({"options": ollama_models()} if k in ("FRIENDLY_MODEL", "WEBSEARCH_MODEL") else {})} for k, s in SPECS.items()]
 
 
 def ollama_models() -> list[str]:

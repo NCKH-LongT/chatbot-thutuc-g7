@@ -12,7 +12,6 @@
   let convId = null;
   let sending = false, abortCtl = null;
   let webOn = false;   // nút "Tìm web" (chỉ DuckDuckGo, không qua bộ dữ liệu); chỉ giữ trong phiên trang
-  let thinkOn = false;   // công tắc "Suy nghĩ kỹ" (mặc định tắt = trả lời nhanh)
   let convs = [];
 
   const el = (tag, cls, text) => {
@@ -58,9 +57,10 @@
     domainId = d.id;
     ls.set("s4_domain", String(domainId));
     document.body.dataset.domain = String(domainId);
-    setMode(d.engine === "strict" ? "strict" : "friendly");
+    const s3 = d.engine === "strict" && d.data_mode !== "s4";   // Thủ tục ở chế độ System 4 = pipeline Friendly trên dữ liệu tải lên
+    setMode(s3 ? "strict" : "friendly");
     renderDomainBar();
-    $("attach").style.display = d.can_upload ? "" : "none";
+    $("attach").style.display = d.can_upload && !s3 ? "" : "none";   // chế độ System 3 không dùng tệp tải lên (tải ở Quản lý lĩnh vực)
     loadDatasets();
   }
   function renderDomainBar() {
@@ -99,142 +99,21 @@
     renderDomainBar();
   }
 
-  /* ---- quản lý domain: xem, ghim, sửa guardrail; dev: loại, khoá, quyền tải ---- */
-  const domOpen = new Set();   // lĩnh vực đang mở bảng dữ liệu (giữ khi vẽ lại danh sách)
-  function renderDomainList() {
-    const ul = $("domain-list"); ul.innerHTML = "";
-    const dev = me && me.role === "dev";
-    $("domain-new-hard").hidden = !dev;
-    domains.forEach((d) => {
-      const li = el("li", "dom-row");
-      const head = el("div", "dom-head");
-      head.append(el("b", "", d.name), el("span", "dom-tag " + d.kind, d.kind === "hard" ? "Cứng" : "Mềm"));
-      if (d.engine === "strict") head.appendChild(el("span", "dom-tag", "System 3"));
-      else if (d.engine === "abi") head.appendChild(el("span", "dom-tag", "abi.com.vn · tự đồng bộ"));
-      const dataBox = el("div"); dataBox.hidden = true;
-      const dataBtn = actionBtn("Dữ liệu", "Bộ dữ liệu của lĩnh vực này: tải lên, bật/tắt, xem, xoá", () => showData(dataBox.hidden));
-      const showData = (on) => {
-        if (on) domOpen.add(d.id); else domOpen.delete(d.id);
-        dataBox.hidden = !on;
-        if (on && !dataBox.firstChild) dataBox.appendChild(dataPanel(d));
-        dataBtn.textContent = on ? "Ẩn dữ liệu" : "Dữ liệu";
-      };
-      if (d.locked) head.appendChild(el("span", "dom-tag lock", "Chỉ cán bộ"));
-      if (d.mine) head.appendChild(el("span", "dom-tag", "Của tôi"));
-      head.appendChild(actionBtn(d.pinned ? "Bỏ ghim" : "Ghim", "Hiện / ẩn trên thanh chọn", async () => {
-        try { domains = (await api("/s4/domains/" + d.id + "/pin", { pinned: !d.pinned })).domains; renderDomainBar(); renderDomainList(); } catch (e) { alert(e.message); }
-      }));
-      if (d.can_edit) head.appendChild(actionBtn("Sửa", "Tên, guardrail" + (dev ? ", loại, khoá" : ""), () => { li.querySelector(".dom-edit").hidden = !li.querySelector(".dom-edit").hidden; }));
-      if (d.can_delete) {   // bấm 2 lần để xoá (không dùng confirm(): một số trình duyệt chặn hộp thoại làm nút như không chạy)
-        const del = actionBtn("Xoá", "Xoá lĩnh vực mềm cùng dữ liệu của nó và đưa hội thoại cũ về \"Trò chuyện chung\"", async () => {
-          if (!del.dataset.sure) {
-            del.dataset.sure = "1"; del.textContent = "Bấm lần nữa để xoá";
-            setTimeout(() => { delete del.dataset.sure; del.textContent = "Xoá"; }, 4000);
-            return;
-          }
-          try { domains = (await api("/s4/domains/" + d.id, null, "DELETE")).domains; await afterDomainsChanged(); }
-          catch (e) { del.textContent = "Lỗi: " + e.message; }
-        });
-        head.appendChild(del);
-      }
-      if (d.builtin && d.kind === "soft") head.appendChild(el("span", "dom-tag", "có sẵn, không xoá được"));
-      head.insertBefore(dataBtn, head.querySelector("button"));
-      li.appendChild(head); li.appendChild(dataBox);
-      if (d.engine === "abi" && dev) li.appendChild(abiPanel());
-      showData(domOpen.has(d.id));
-      if (d.can_edit) {
-        const ed = el("div", "dom-edit"); ed.hidden = true;
-        const name = el("input"); name.type = "text"; name.value = d.name; name.maxLength = 40; name.disabled = d.engine === "strict";
-        const g = el("textarea"); g.rows = 3; g.maxLength = 1000; g.value = d.guardrail; g.placeholder = "Guardrail: lời dặn gửi thẳng cho AI trước khi trả lời trong lĩnh vực này";
-        ed.append(name, g);
-        const flags = {};
-        if (dev) {
-          [["hard", "Lĩnh vực cứng (dữ liệu dùng chung, không xoá được)", d.kind === "hard", d.engine !== "friendly"], ["locked", "Khoá: chỉ dev và cán bộ dùng", d.locked, false],
-           ["upload", "Cho người dùng thường tải dữ liệu riêng (lĩnh vực mềm)", d.user_upload, d.engine !== "friendly"]].forEach(([k, label, on, off]) => {
-            const lab = el("label", "dom-check"), cb = el("input"); cb.type = "checkbox"; cb.checked = on; cb.disabled = off; flags[k] = cb;
-            lab.append(cb, label); ed.appendChild(lab);
-          });
-        }
-        const save = el("button", "primary", "Lưu"); save.type = "button";
-        save.onclick = async () => {
-          const body = { guardrail: g.value };
-          if (d.engine !== "strict") body.name = name.value;
-          if (dev) { body.locked = flags.locked.checked; if (d.engine !== "strict") { body.kind = flags.hard.checked ? "hard" : "soft"; body.user_upload = flags.upload.checked; } }
-          try { domains = (await api("/s4/domains/" + d.id, body, "PATCH")).domains; await afterDomainsChanged(); } catch (e) { alert(e.message); }
-        };
-        ed.appendChild(save); li.appendChild(ed);
-      }
-      ul.appendChild(li);
-    });
-  }
-  /* ---- lĩnh vực ABI (dev): đồng bộ abi.com.vn bằng tay + công tắc hỏi trợ lý của web (system4/abi/scheduler.py) ---- */
-  let abiTimer = null;
-  function abiPanel() {
-    const box = el("div", "abi-box"), line = el("div", "abi-line", "Đang xem trạng thái đồng bộ…");
-    const btn = el("button", "primary", "Đồng bộ ngay"); btn.type = "button";
-    btn.title = "Kéo lại dữ liệu từ abi.com.vn: chỉ tải phần đổi (thường dưới 1 phút), lần đầu khoảng 3 phút";
-    const lab = el("label", "dom-check"), cb = el("input"); cb.type = "checkbox";
-    lab.title = "Khi dữ liệu đồng bộ không có đoạn nào khớp, hỏi trợ lý RAG của abi.com.vn. Trợ lý đó giới hạn khoảng 3 câu liên tiếp, có lúc trả lời sai.";
-    lab.append(cb, "Hỏi thêm trợ lý của web khi dữ liệu không có (dự phòng)");
-    const row = el("div", "abi-row"); row.append(btn, lab);
-    box.append(line, row);
-    const when = (s) => { if (!s) return "chưa đồng bộ"; const t = new Date(s); return isNaN(t) ? s : t.toLocaleString("vi-VN"); };
-    const show = (r) => {
-      const st = r.state || {}, ds = (r.datasets || [])[0], last = (r.runs || [])[0], busy = !!st.running || !!(ds && ds.status !== "ready");
-      let txt;
-      if (st.running) txt = "Đang đồng bộ: " + (st.step || "…");
-      else if (busy) txt = "Đang tạo chỉ mục tìm kiếm… " + (ds.progress || 0) + "%";
-      else {
-        txt = "Đồng bộ lần cuối: " + when(r.synced_at);
-        if (last && !last.ok && !last.skipped) txt += " · lần gần nhất lỗi: " + (last.error || "");
-        else if (last && last.diff) {
-          const n = Object.values(last.diff).reduce((a, v) => a + v.added + v.removed + v.changed, 0);
-          txt += n ? " · " + n + " mục thay đổi" : " · không có gì mới";
-        }
-        if (last && last.index_error) txt += " · chỉ mục lỗi: " + last.index_error;
-        else if (!ds) txt += " · chưa có chỉ mục tìm kiếm (cần Ollama)";
-      }
-      line.textContent = txt;
-      btn.disabled = busy;
-      cb.checked = !!(r.settings || {}).ABI_REMOTE_RAG;
-      clearTimeout(abiTimer);
-      if (busy && !$("domain-modal").hidden) abiTimer = setTimeout(load, 2000);   // đóng cửa sổ thì thôi hỏi
-    };
-    const load = async () => { try { show(await api("/s4/abi/status")); } catch (e) { line.textContent = "Lỗi: " + e.message; } };
-    btn.onclick = async () => {
-      btn.disabled = true; line.textContent = "Đang bắt đầu đồng bộ…";
-      try {
-        const r = await api("/s4/abi/sync", {});
-        show(r);
-        if (!r.started && r.reason) line.textContent = r.reason;   // vừa đồng bộ (thoả thuận tần suất với chủ web) / đang chạy
-      } catch (e) { line.textContent = "Lỗi: " + e.message; btn.disabled = false; }
-    };
-    cb.onchange = async () => {
-      try { await api("/s4/settings", { values: { ABI_REMOTE_RAG: cb.checked } }); } catch (e) { alert(e.message); cb.checked = !cb.checked; }
-    };
-    load();
-    return box;
-  }
+  /* ---- bảng điều khiển lĩnh vực (hộp "Lĩnh vực"): dashboard.js — một chỗ cho lĩnh vực, dữ liệu, đường nhanh, thống kê.
+     app.js chỉ đưa cho nó các hàm dùng chung (S4Dash.init trong init()). ---- */
+  let viewUser = false;   // dev / cán bộ bật "Xem như người dùng" trong bảng điều khiển
+  const isStaff = () => !viewUser && !!me && (me.role === "dev" || me.role === "can_bo");
+  const isGuest = () => !!me && me.role === "guest";   // khách: chỉ trò chuyện (không 👍/👎, bộ nhớ, tài khoản, bảng điều khiển)
   async function afterDomainsChanged() {
     if (!domains.some((d) => d.id === domainId)) { setDomain((domains[0] || {}).id); await loadConv(null); refreshList(); }
-    else { renderDomainBar(); setDomain(domainId); }
-    renderDomainList();
+    else {
+      const before = mode;
+      renderDomainBar(); setDomain(domainId);
+      if (mode !== before) { await loadConv(null); refreshList(); }   // Thủ tục đổi nguồn System 3 <-> 4: hội thoại đang mở thuộc chế độ cũ
+    }
   }
-  async function openDomainManager(openId) {
-    await loadDomains(); if (openId) domOpen.add(openId);
-    renderDomainList(); $("domain-modal").hidden = false;
-  }
+  const openDomainManager = (openId, openTab) => S4Dash.open(openId, openTab);
   $("open-domains").onclick = () => openDomainManager();
-  $("domain-close").onclick = () => { $("domain-modal").hidden = true; };
-  $("domain-modal").addEventListener("click", (e) => { if (e.target === $("domain-modal")) $("domain-modal").hidden = true; });
-  $("domain-new").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const f = e.target;
-    try {
-      const r = await api("/s4/domains", { name: f.name.value, guardrail: f.guardrail.value, kind: f.hard.checked ? "hard" : "soft" });
-      domains = r.domains; f.reset(); renderDomainBar(); renderDomainList();
-    } catch (err) { alert(err.message); }
-  });
 
   function modelName() {
     $("model-name").textContent = mode === "friendly" ? (pub.friendly_model || "") : (cfg.model ? cfg.model + " · luật" : "");
@@ -383,11 +262,12 @@
       if (me && me.role === "dev") bar.appendChild(actionBtn("🔍", "Soi: kế hoạch và dấu vết System 3 cho câu trả lời này", () => S4Inspect.strict(m.node_id), "inspect"));
       if (m.kind !== "chitchat" || !String(m.content || "").startsWith("Đã bắt đầu chủ đề mới"))
         bar.appendChild(actionBtn("↻", "Tạo lại câu trả lời (phát lại các câu trước để System 3 dựng lại ngữ cảnh)", () => strictRedo(w, "regenerate", { node_id: m.node_id })));
-      [[1, "👍", "Câu trả lời tốt"], [-1, "👎", "Câu trả lời chưa tốt"]].forEach(([v, label, title]) => {
+      if (!isGuest()) [[1, "👍", "Câu trả lời tốt"], [-1, "👎", "Câu trả lời chưa tốt"]].forEach(([v, label, title]) => {
         bar.appendChild(actionBtn(label, title, async (x) => {
           const val = m.feedback === v ? 0 : v;
           try { await api("/s4/strict/" + convId + "/feedback", { node_id: m.node_id, value: val }); } catch (e) { alert("Lỗi: " + e.message); return; }
           m.feedback = val; bar.querySelectorAll(".fb").forEach((y) => y.classList.remove("on")); if (val) x.classList.add("on");
+          fbNote(w, val);
           reasonChips(w, "strict", val, (reason) => api("/s4/strict/" + convId + "/feedback", { node_id: m.node_id, value: -1, reason }));
         }, "fb" + (m.feedback === v ? " on" : "")));
       });
@@ -402,6 +282,12 @@
     strict: [["wrong_proc", "Sai thủ tục"], ["wrong_number", "Sai số liệu"], ["no_clarify", "Không hỏi lại"], ["other", "Khác"]],
     friendly: [["wrong_info", "Sai thông tin"], ["off_topic", "Không đúng ý hỏi"], ["bad_format", "Dài / khó đọc"], ["other", "Khác"]],
   };
+  /* D13: bấm 👍/👎 -> báo rõ cặp hỏi–đáp (đã che số) được giữ lại, kể cả khi xoá tài khoản */
+  const FEEDBACK_NOTE = "Câu hỏi và câu trả lời (đã che số giấy tờ) được giữ để cải thiện hệ thống, kể cả khi bạn xoá tài khoản.";
+  function fbNote(wrap, val) {
+    const old = wrap.querySelector(".fb-note"); if (old) old.remove();
+    if (val) wrap.appendChild(el("div", "fb-note muted small", FEEDBACK_NOTE));
+  }
   function reasonChips(wrap, kind, val, send) {
     const old = wrap.querySelector(".fb-reason"); if (old) old.remove();
     if (val !== -1) return;
@@ -459,7 +345,7 @@
     box.appendChild(status); scroll();
     try { renderStrict((await api("/s4/strict/" + convId + "/" + action, body)).messages); }
     catch (e) { status.remove(); const x = el("div", "msg assistant"); x.appendChild(el("div", "bubble err", "Lỗi: " + e.message)); box.appendChild(x); }
-    finally { setBusy(false); refreshList(); }
+    finally { setBusy(false); refreshList(); refreshUsage(); }
   }
 
   /* ------------------------------------------------------ Friendly ------- */
@@ -562,6 +448,9 @@
       w.appendChild(row);
     }
     if (m.status === "stopped") w.appendChild(el("div", "stopped-note", "(đã dừng)"));
+    if (m.meta && m.meta.cached) w.appendChild(el("div", "stopped-note", "Câu trả lời có sẵn (đã được đánh giá hữu ích). Bấm ↻ để AI trả lời lại."));
+    if (m.meta && m.meta.draft) w.appendChild(el("div", "stopped-note", "Bản đầu, chưa qua kiểm tra (hệ thống viết lại vì " + m.meta.draft.why + "). Bản đã kiểm ở phiên bản sau ›"));
+    if (m.meta && m.meta.revised_from) w.appendChild(el("div", "stopped-note", "Đã kiểm tra và viết lại (" + m.meta.revised_from.why + "). Bản đầu ở phiên bản trước ‹"));
     const choices = (m.meta && m.meta.choices) || [];
     if (choices.length) w.appendChild(clarifyCard({ question: "Chọn nhanh:", options: choices, allow_free_text: true }, null, !isLast));
     const bar = el("div", "msg-actions");
@@ -570,9 +459,7 @@
     bar.appendChild(actionBtn("↻", "Tạo lại câu trả lời", () => regenerate(w, m)));
     if (me && me.role === "dev") bar.appendChild(actionBtn("🔍", "Soi: AI đã tìm gì, nhận lời dặn gì, nghĩ gì, kiểm soát nào đã chạy", () => S4Inspect.friendly(m.id, true), "inspect"));
     else if (m.meta && m.meta.specialist) bar.appendChild(actionBtn("Vì sao?", "Vì sao có câu trả lời này: nguồn và độ liên quan", () => S4Inspect.friendly(m.id, false), "deeper"));
-    if (!err && (m.meta || {}).mode !== "think")
-      bar.appendChild(actionBtn("Kỹ hơn", "Trả lời kỹ hơn: AI suy nghĩ rồi trả lời lại (khoảng 30 giây)", () => regenerate(w, m, "think"), "deeper"));
-    if (!err) {
+    if (!err && !isGuest()) {
       const fb = (v, label, title) => {
         const btn = actionBtn(label, title, async (x) => {
           const val = m.feedback === v ? 0 : v;
@@ -580,6 +467,7 @@
           m.feedback = val;
           bar.querySelectorAll(".fb").forEach((y) => y.classList.remove("on"));
           if (val) x.classList.add("on");
+          fbNote(w, val);
           reasonChips(w, "friendly", val, (reason) => api("/s4/conversations/" + convId + "/messages/" + m.id + "/feedback", { value: -1, reason }));
         }, "fb" + (m.feedback === v ? " on" : ""));
         bar.appendChild(btn);
@@ -593,18 +481,17 @@
       if (m.meta.filtered) notes.push("đã lọc " + m.meta.filtered.letters + " chữ lạ, " + m.meta.filtered.other + " ký hiệu");
       if (m.meta.leak_retry) notes.push("đã viết lại do lọt chữ lạ");
       if (m.meta.retrieval) notes.push("tìm: " + m.meta.retrieval.candidates_n + " ứng viên" + (m.meta.retrieval.reranked ? ", đã xếp hạng lại" : ", không xếp hạng lại"));
-      if (m.meta.mode) notes.push("chế độ: " + (m.meta.mode === "think" ? "suy nghĩ kỹ" : "nhanh") + (m.meta.interrupted ? " (đã bấm Trả lời nhanh)" : ""));
       if (notes.length) w.appendChild(el("div", "dev-note", notes.join(" · ")));
     }
     box.appendChild(w);
     return w;
   }
 
-  function regenerate(w, m, mode) {
+  function regenerate(w, m) {
     if (sending) return;
     while (w.nextSibling) w.nextSibling.remove();
     w.remove();
-    send("", null, mode ? { regenerate_of: m.id, mode } : { regenerate_of: m.id });
+    send("", null, { regenerate_of: m.id });
   }
 
   function renderFriendly(msgs) {
@@ -616,6 +503,7 @@
   }
 
   function memoryNote(ev) {
+    if (isGuest()) return;
     const last = [...box.querySelectorAll(".msg.assistant")].pop();
     if (!last) return;
     const n = el("div", "mem-note");
@@ -716,17 +604,6 @@
     const t = el("span", "", text);
     s.append(el("span", "spinner"), t);
     s.setText = (x) => { t.textContent = x; };
-    s.fastButton = (turnId) => {   // đang suy nghĩ kỹ: cho phép ngắt và trả lời nhanh
-      if (s.querySelector(".fast-btn")) return;
-      const b = el("button", "fast-btn", "Trả lời nhanh"); b.type = "button";
-      b.title = "Dừng suy nghĩ, trả lời ngay";
-      b.onclick = async () => {
-        b.disabled = true; s.setText("Đang chuyển sang trả lời nhanh…");
-        try { await api("/s4/turns/" + turnId + "/fast", {}); } catch (_) { b.disabled = false; }
-      };
-      s.appendChild(b);
-    };
-    s.noFast = () => { const b = s.querySelector(".fast-btn"); if (b) b.remove(); };
     return s;
   }
 
@@ -769,7 +646,7 @@
       const finish = () => { if (!settled) { settled = true; resolve(); } };
       const status = statusLine("Đang gửi…");
       box.appendChild(status); scroll();
-      let wrap = null, bubble = null, raw = "", failed = false, raf = 0;
+      let wrap = null, bubble = null, raw = "", failed = false, raf = 0, checking = false;
       const paint = () => { raf = 0; if (bubble) { bubble.innerHTML = md(visible(raw)); scroll(); } };
       const ensureBubble = () => {
         if (!bubble) {
@@ -797,7 +674,7 @@
           if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(typeof d.detail === "string" ? d.detail : res.statusText); }
           const reader = res.body.getReader();
           const dec = new TextDecoder();
-          let buf = "", myConv = null, turnMode = payload.mode;
+          let buf = "", myConv = null;
           for (;;) {
             const { value, done } = await reader.read();
             if (done) break;
@@ -808,25 +685,22 @@
               if (!line.startsWith("data: ")) continue;
               const ev = JSON.parse(line.slice(6));
               if (ev.type === "meta") {
-                turnMode = ev.mode;
-                if (turnMode === "think") { status.setText("Đang suy nghĩ kỹ…"); status.fastButton(ev.turn_id); }
                 myConv = ev.conversation_id;
                 const isNew = convId !== myConv;
                 convId = myConv; ls.set("s4_conv", JSON.stringify({ id: convId, mode: "friendly" }));
                 if (isNew) refreshList();
               } else if (ev.type === "queue") status.setText("Đang chờ tới lượt (còn " + ev.position + " lượt trước bạn)…");
-              else if (ev.type === "start") status.setText(turnMode === "think" ? "Đang suy nghĩ kỹ…" : "AI đang trả lời…");
-              else if (ev.type === "thinking") status.setText("Đang suy nghĩ kỹ…");
-              else if (ev.type === "switch") {
-                turnMode = "fast"; status.noFast();
-                raw = ""; if (wrap) wrap.remove(); wrap = bubble = null;
-                if (!status.isConnected) box.appendChild(status);
-                status.setText("Đang trả lời nhanh…");
-              }
+              else if (ev.type === "start") status.setText("AI đang trả lời…");
               else if (ev.type === "delta") { ensureBubble(); raw += ev.text; if (!raf) raf = requestAnimationFrame(paint); }
-              else if (ev.type === "restart") {
-                raw = ""; if (wrap) wrap.remove(); wrap = bubble = null;
-                box.appendChild(status); status.setText("Đang viết lại câu trả lời…");
+              else if (ev.type === "checking") {
+                /* bước kiểm cần viết lại: bản đầu đứng yên cho người dùng đọc; bản đã kiểm không hiện dần, xong thì
+                   "done" vẽ lại hội thoại và nhảy sang phiên bản mới (‹ › để mở lại bản đầu) */
+                checking = true;
+                if (raf) { cancelAnimationFrame(raf); paint(); }
+                box.appendChild(status);
+                status.setText(bubble ? "Đang kiểm tra và viết lại câu trả lời — bản trên vẫn giữ để bạn đọc, bản đã kiểm sẽ là phiên bản mới…"
+                                      : "Đang viết lại câu trả lời…");
+                scroll();
               } else if (ev.type === "replace") { ensureBubble(); raw = ev.text; paint(); }
               else if (ev.type === "error") fail(ev.message);
               else if (ev.type === "done") {
@@ -842,8 +716,8 @@
         } catch (e) {
           if (e.name === "AbortError") {
             status.remove();
-            if (wrap) wrap.appendChild(el("div", "stopped-note", "(đã dừng)"));
-            finish();
+            if (checking && bubble) { finish(); loadConv(convId, "friendly"); }   // dừng lúc viết lại: server giữ bản đầu làm câu trả lời
+            else { if (wrap) wrap.appendChild(el("div", "stopped-note", "(đã dừng)")); finish(); }
           } else if (!settled) fail(e.message);
         } finally {
           if (abortCtl === ctl) abortCtl = null;
@@ -861,10 +735,10 @@
     box.querySelectorAll(".choice-item,.choice-custom-btn,.choice-custom-input").forEach((x) => (x.disabled = true));
     if (!regen) userMsg(text);
     try {
-      if (mode === "friendly") await sendFriendly({ text, conversation_id: convId, mode: thinkOn ? "think" : "fast", websearch: webOn, domain_id: domainId, ...(extra || {}) });
+      if (mode === "friendly") await sendFriendly({ text, conversation_id: convId, websearch: webOn, domain_id: domainId, ...(extra || {}) });
       else await sendStrict(text, replyTo);
     } finally {
-      setBusy(false); scroll(); refreshList();
+      setBusy(false); scroll(); refreshList(); refreshUsage();
     }
   }
 
@@ -892,14 +766,10 @@
   };
   if (innerWidth <= 760) $("sidebar").classList.add("hidden");
   $("toggle-sidebar").onclick = () => $("sidebar").classList.toggle("hidden");
-  function renderThink() {
-    const b = $("think-toggle");
-    b.setAttribute("aria-pressed", String(thinkOn));
-    b.classList.toggle("on", thinkOn);
-  }
   $("web-toggle").onclick = () => { webOn = !webOn; const b = $("web-toggle"); b.setAttribute("aria-pressed", String(webOn)); b.classList.toggle("on", webOn); $("input").focus(); };
-  $("think-toggle").onclick = () => { thinkOn = !thinkOn; ls.set("s4_think", thinkOn ? "1" : "0"); renderThink(); $("input").focus(); };
-  $("logout").onclick = async () => { try { await api("/s4/auth/logout", {}); } catch (_) {} toLogin(); };
+  $("logout").onclick = async () => {
+    if (isGuest()) { toLogin(); return; }   // khách: giữ phiên khách (trang đăng nhập có nút quay lại dùng thử)
+    try { await api("/s4/auth/logout", {}); } catch (_) {} toLogin(); };
 
   /* ---- cấu hình AI của Strict (System 3: GET/POST /config), chỉ hiện ở chế độ Strict ---- */
   const aiBadge = $("ai-badge"), cfgPanel = $("cfg-panel");
@@ -996,6 +866,9 @@
       s.choices.forEach((c) => { const o = el("option", "", c); o.value = c; o.selected = c === s.value; inp.appendChild(o); });
     } else if (s.type === "text") {
       inp = el("textarea"); inp.value = s.value;
+    } else if (s.secret) {   // khoá bí mật: server không gửi giá trị; để trống = giữ nguyên khoá đã lưu
+      inp = el("input"); inp.type = "password"; inp.value = ""; inp.autocomplete = "new-password";
+      inp.placeholder = s.is_set ? "đã lưu — để trống để giữ nguyên" : "chưa có";
     } else {
       inp = el("input"); inp.type = s.type === "int" || s.type === "float" ? "number" : "text"; inp.value = s.value;
       if (s.type === "int") inp.step = "1";
@@ -1035,6 +908,7 @@
     const out = {};
     setBody.querySelectorAll("input[data-key],select[data-key],textarea[data-key]").forEach((i) => {
       const s = specs.find((x) => x.key === i.dataset.key);
+      if (s.secret && !i.value) return;   // khoá bí mật để trống: không gửi (giữ khoá đã lưu)
       let v = s.type === "bool" ? i.checked : i.value;
       if (s.type === "int" || s.type === "float") v = i.value === "" ? NaN : Number(i.value);
       out[s.key] = v;
@@ -1064,13 +938,13 @@
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") { setModal.hidden = true; memModal.hidden = true; } });
   $("settings-save").onclick = () => {
     const vals = formValues(), changed = {};
-    specs.forEach((s) => { if (!same(vals[s.key], s.value)) changed[s.key] = vals[s.key]; });
+    specs.forEach((s) => { if (vals[s.key] !== undefined && !same(vals[s.key], s.value)) changed[s.key] = vals[s.key]; });   // undefined = khoá bí mật để trống
     if (!Object.keys(changed).length) { note("Không có thay đổi nào.", true); return; }
     settingsCall("/s4/settings", { values: changed }, "Đã lưu. Tải lại trang để áp dụng.");
   };
   $("settings-default").onclick = () => {
     const vals = formValues(), nd = {};
-    specs.forEach((s) => { if (!same(vals[s.key], s.default)) nd[s.key] = vals[s.key]; });
+    specs.forEach((s) => { if (vals[s.key] !== undefined && !s.secret && !same(vals[s.key], s.default)) nd[s.key] = vals[s.key]; });   // khoá bí mật không vào config.py
     if (!Object.keys(nd).length) { note("Các giá trị đang hiện đã là mặc định.", true); return; }
     if (!confirm(`Ghi ${Object.keys(nd).length} giá trị đang hiện vào config.py làm mặc định mới? (config.py cũ được giữ ở config.py.bak)`)) return;
     settingsCall("/s4/settings/default", { values: nd }, "Đã ghi vào config.py. Tải lại trang để áp dụng.");
@@ -1090,7 +964,7 @@
 
   async function loadDatasets() {
     try { ds = await api("/s4/datasets?domain_id=" + domainId); } catch (_) { return; }
-    $("attach").style.display = ds.can_upload ? "" : "none";
+    $("attach").style.display = ds.can_upload && mode !== "strict" ? "" : "none";
     renderSpecBadge();
     ds.datasets.forEach((d) => {
       if (!pending.has(d.id)) return;
@@ -1150,10 +1024,10 @@
   const panels = new Set();
   const refreshPanels = () => panels.forEach((p) => { if (p.isConnected) p.refresh(); else panels.delete(p); });
 
-  function dsItem(d, refresh) {
+  function dsItem(d, refresh, canShare) {   // canShare: lĩnh vực mềm không riêng ai + dev / cán bộ -> nút "Dùng chung"
     const li = el("li");
     const sw = el("label", "switch"), cb = el("input"), knob = el("span");
-    const mineDs = d.user_id === me.id || me.role === "dev";
+    const mineDs = d.user_id === me.id || isStaff();
     cb.type = "checkbox"; cb.checked = d.active; cb.disabled = d.status !== "ready" || !mineDs;
     cb.title = d.status === "ready" ? (d.active ? "Đang bật: AI dùng bộ này" : "Đang tắt") : "Chờ xử lý xong";
     cb.onchange = async () => {
@@ -1167,11 +1041,15 @@
     main.appendChild(el("div", "ds-msg" + (d.status === "error" ? " err" : ""), d.message || d.status));
     if (d.status === "queued" || d.status === "processing") { const pg = el("div", "ds-progress"); const i = el("i"); i.style.width = d.progress + "%"; pg.appendChild(i); main.appendChild(pg); }
     main.appendChild(el("div", "ds-meta", [KIND[d.kind] || "", d.n_records ? d.n_records + " bản ghi" : "", fmtSize(d.size_bytes), d.filename,
-      d.user_id !== me.id ? "dùng chung (" + (d.username || "dev") + ")" : "", d.locked ? "chỉ cán bộ" : ""].filter(Boolean).join(" · ")));
+      d.user_id !== me.id ? "dùng chung (" + (d.username || "dev") + ")" : d.shared ? "dùng chung với mọi người" : "", d.locked ? "chỉ cán bộ" : ""].filter(Boolean).join(" · ")));
     const act = el("div", "ds-actions");
     if (d.status === "ready") act.appendChild(actionBtn("Xem", "Xem các bản ghi", () => openRecords(d)));
     if (d.status === "ready") act.appendChild(actionBtn("Cách đọc", "Xem hệ thống đã đọc tệp thế nào: dòng tiêu đề, cột tiêu đề, bản ghi đầu", () => S4Inspect.reading(d.id)));
-    if (me.role === "dev") act.appendChild(actionBtn(d.locked ? "Mở khoá" : "Khoá", "Khoá: chỉ dev và cán bộ dùng bộ dữ liệu này", async () => {
+    if (canShare && d.user_id === me.id) act.appendChild(actionBtn(d.shared ? "Thôi dùng chung" : "Dùng chung", "Dùng chung: mọi người dùng được lĩnh vực này đều thấy và hỏi được bộ dữ liệu (chỉ đọc)", async () => {
+      try { await api("/s4/datasets/" + d.id, { shared: !d.shared }, "PATCH"); } catch (e) { alert(e.message); }
+      refresh();
+    }));
+    if (isStaff()) act.appendChild(actionBtn(d.locked ? "Mở khoá" : "Khoá", "Khoá: chỉ dev và cán bộ dùng bộ dữ liệu này", async () => {
       try { await api("/s4/datasets/" + d.id, { locked: !d.locked }, "PATCH"); } catch (e) { alert(e.message); }
       refresh();
     }));
@@ -1186,7 +1064,7 @@
     return li;
   }
 
-  function dataPanel(dom) {
+  function dataPanel(dom, uploadedOnly) {   // uploadedOnly: chỉ tệp tải lên (lĩnh vực cứng có dữ liệu đồng bộ riêng, vd. ABI)
     const root = el("div", "dom-data");
     const quota = el("div", "quota"), warn = el("div", "data-warn"), list = el("ul", "data-list");
     const up = el("button", "primary", "+ Tải tệp lên"); up.type = "button";
@@ -1197,7 +1075,7 @@
     let timer = null;
     root.refresh = async () => {
       let st;
-      try { st = await api("/s4/datasets?domain_id=" + dom.id); } catch (_) { return; }
+      try { st = await api("/s4/datasets?domain_id=" + dom.id + (uploadedOnly ? "&uploaded=1" : "")); } catch (_) { return; }
       const q = st.quota || {}, used = q.used || 0;
       quota.innerHTML = "";
       if (q.limit) {
@@ -1210,7 +1088,7 @@
       up.hidden = !st.can_upload;
       list.innerHTML = "";
       if (!st.datasets.length) list.appendChild(el("li", "mem-empty", st.can_upload ? 'Chưa có bộ dữ liệu nào trong lĩnh vực này. Bấm "+ Tải tệp lên".' : "Lĩnh vực này chưa có bộ dữ liệu dùng chung."));
-      st.datasets.forEach((d) => list.appendChild(dsItem(d, () => { root.refresh(); if (dom.id === domainId) loadDatasets(); })));
+      st.datasets.forEach((d) => list.appendChild(dsItem(d, () => { root.refresh(); if (dom.id === domainId) loadDatasets(); }, st.domain && st.domain.can_share)));
       clearTimeout(timer);
       if (st.datasets.some((d) => d.status === "queued" || d.status === "processing")) timer = setTimeout(() => { if (root.isConnected) root.refresh(); }, 2000);
     };
@@ -1267,7 +1145,7 @@
 
   $("attach").onclick = () => $("file-input").click();
   $("file-input").onchange = () => { const f = [...$("file-input").files]; $("file-input").value = ""; if (f.length) uploadFiles(f); };
-  $("spec-badge").onclick = () => openDomainManager(domainId);
+  $("spec-badge").onclick = () => { if (!isGuest()) openDomainManager(domainId); };
   [["records-close", "records-modal"], ["source-close", "source-modal"]].forEach(([b, m]) => {
     $(b).onclick = () => { $(m).hidden = true; };
     $(m).addEventListener("click", (e) => { if (e.target === $(m)) $(m).hidden = true; });
@@ -1308,6 +1186,65 @@
   $("memory-close").onclick = () => { memModal.hidden = true; };
   memModal.addEventListener("click", (e) => { if (e.target === memModal) memModal.hidden = true; });
 
+  /* ---- Tài khoản & quyền riêng tư (G1.4, G1.7): dung lượng, đổi mật khẩu, xoá hội thoại / bộ nhớ / tài khoản ---- */
+  const accModal = $("account");
+  const mb = (n) => (n / 1048576).toLocaleString("vi-VN", { maximumFractionDigits: 1 }) + " MB";
+  async function openAccount() {
+    try {
+      const d = await api("/s4/account"), u = d.usage;
+      $("rules-only").checked = !!d.rules_only;
+      $("account-ai").textContent = d.ai && d.ai.cpu_only ? "Máy đang chạy AI bằng CPU (" + (d.ai.why || "không có card đồ hoạ") + "): AI trả lời chậm." : "";
+      $("account-usage").textContent = `Đã dùng ${mb(u.used)}` + (u.quota ? ` / ${mb(u.quota)}` : " (dev: không giới hạn)") +
+        ` — dữ liệu tải lên ${mb(u.datasets)}, hội thoại Strict ${mb(u.strict)}, hội thoại Friendly ${mb(u.friendly)}.`;
+      accModal.hidden = false;
+    } catch (e) { alert("Lỗi: " + e.message); }
+  }
+  $("open-account").onclick = openAccount;
+  async function setRulesOnly(on) {   // G3.3: theo tài khoản, lưu ở server
+    try { const d = await api("/s4/account/prefs", { rules_only: on }); $("rules-only").checked = $("rules-only-banner").checked = d.rules_only; }
+    catch (e) { alert("Lỗi: " + e.message); }
+  }
+  $("rules-only").onchange = (e) => setRulesOnly(e.target.checked);
+  $("rules-only-banner").onchange = (e) => setRulesOnly(e.target.checked);
+  $("account-close").onclick = () => { accModal.hidden = true; };
+  accModal.addEventListener("click", (e) => { if (e.target === accModal) accModal.hidden = true; });
+  $("account-password").onsubmit = async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    try { await api("/s4/account/password", { old_password: f.old_password.value, new_password: f.new_password.value }); f.reset(); alert("Đã đổi mật khẩu."); }
+    catch (err) { alert("Lỗi: " + err.message); }
+  };
+  $("account-del-convs").onclick = async () => {
+    if (!confirm("Xoá TẤT CẢ hội thoại (Strict và Friendly) của bạn? Không khôi phục được.")) return;
+    try { await api("/s4/account/conversations", null, "DELETE"); await loadConv(null, mode); refreshList(); openAccount(); }
+    catch (e) { alert("Lỗi: " + e.message); }
+  };
+  $("account-del-memory").onclick = async () => {
+    if (!confirm("Xoá bộ nhớ (những điều AI nhớ về bạn và hồ sơ của chế độ Strict)?")) return;
+    try { await api("/s4/account/memory", null, "DELETE"); alert("Đã xoá bộ nhớ."); } catch (e) { alert("Lỗi: " + e.message); }
+  };
+  $("account-delete").onsubmit = async (e) => {
+    e.preventDefault();
+    if (!confirm("Xoá tài khoản và toàn bộ dữ liệu của bạn? Không khôi phục được.")) return;
+    try { await api("/s4/account", { password: e.target.password.value }, "DELETE"); toLogin(); }
+    catch (err) { alert("Lỗi: " + err.message); }
+  };
+
+  /* Hạn mức câu hỏi (ratelimit.py): khách luôn thấy còn bao nhiêu câu hôm nay; tài khoản chỉ thấy khi sắp hết. */
+  function showUsage(l) {
+    const b = $("guest-banner");
+    if (!l || !l.enforced || (!isGuest() && l.left_today > 10)) { b.hidden = true; return; }
+    $("guest-left").textContent = isGuest()
+      ? `Bạn đang dùng thử với tư cách khách: còn ${l.left_today}/${l.per_day} câu hỏi hôm nay, tối đa ${l.per_min} câu mỗi phút. ` +
+        `Hội thoại của khách bị xoá sau 24 giờ. Tài khoản (miễn phí) được ${(pub.user_limits || {}).per_day || "nhiều"} câu mỗi ngày.`
+      : `Còn ${l.left_today}/${l.per_day} câu hỏi hôm nay (làm mới lúc 0 giờ).`;
+    b.querySelector("a").hidden = !isGuest();
+    b.hidden = false;
+  }
+  async function refreshUsage() {
+    try { const p = await api("/s4/public"); pub.limits = p.limits; showUsage(p.limits); } catch (_) {}
+  }
+
   /* ---------------------------------------------------------- khởi động -- */
   (async function init() {
     try { pub = await api("/s4/public"); } catch (_) { pub = {}; }
@@ -1316,21 +1253,30 @@
     document.title = pub.app_title || "Instant Specialist";
     const nameEl = $("user-name");
     nameEl.textContent = me.username;
-    nameEl.appendChild(el("span", "role-tag", "· " + ({ dev: "dev", can_bo: "cán bộ" }[me.role] || "người dân")));
+    nameEl.appendChild(el("span", "role-tag", "· " + ({ dev: "dev", can_bo: "cán bộ", guest: "chưa đăng nhập" }[me.role] || "người dân")));
     $("open-settings").hidden = me.role !== "dev";
     $("open-admin").hidden = me.role !== "dev";
-    const savedThink = ls.get("s4_think");
-    thinkOn = savedThink === null ? pub.default_answer_mode === "think" : savedThink === "1";
-    renderThink();
+    if (isGuest()) {
+      ["open-account", "open-memory", "open-domains"].forEach((id) => { $(id).hidden = true; });
+      $("logout").textContent = "Đăng nhập";
+      $("spec-badge").title = "Dữ liệu lĩnh vực này đang dùng. Đăng nhập để tải thêm dữ liệu của bạn.";
+    }
+    showUsage(pub.limits);
+    $("cpu-banner").hidden = !pub.cpu_mode;   // G3.3: máy không có card đồ hoạ
+    $("rules-only-banner").checked = !!pub.rules_only;
+    S4Dash.init({ api, el, me: () => me, domains: () => domains, setDomains: (d) => { domains = d; }, loadDomains, renderDomainBar,
+                  afterDomainsChanged, switchDomain, domainId: () => domainId, dataPanel, openRecords,
+                  setViewUser: (v) => { viewUser = v; refreshPanels(); } });
     let saved = null;
     try { saved = JSON.parse(ls.get("s4_conv") || "null"); } catch (_) {}
     await loadDomains();
     const wantMode = saved ? saved.mode : (ls.get("s4_mode") || pub.default_mode);
-    const byMode = domains.find((d) => d.engine === (wantMode === "strict" ? "strict" : "friendly"));
+    const byMode = domains.find((d) => wantMode === "strict" ? d.engine === "strict" && d.data_mode !== "s4" : d.engine === "friendly");
     setDomain(Number(ls.get("s4_domain")) || (byMode || domains[0] || {}).id);
     if (saved && mode !== saved.mode) saved = null;   // domain đã chọn khác chế độ của hội thoại cũ (domain bị khoá…)
     loadCfg();
     await loadConv(saved ? saved.id : null, saved ? saved.mode : null);
     refreshList();
+    if (new URLSearchParams(location.search).get("dash") === "1") openDomainManager();   // liên kết từ trang Quản trị
   })();
 })();

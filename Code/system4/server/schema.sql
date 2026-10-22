@@ -130,6 +130,7 @@ CREATE TABLE IF NOT EXISTS domains (
   kind        TEXT NOT NULL DEFAULT 'soft',
   engine      TEXT NOT NULL DEFAULT 'friendly',
   guardrail   TEXT NOT NULL DEFAULT '',            -- lời dặn gửi thẳng cho AI ngay trước khi soạn câu trả lời trong domain này
+  profile     TEXT NOT NULL DEFAULT '{}',          -- G4.3: hồ sơ lĩnh vực (chỉ các mục đã đổi so với mặc định; xem server/profile.py)
   locked      INTEGER NOT NULL DEFAULT 0,
   user_upload INTEGER NOT NULL DEFAULT 0,
   owner_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -159,4 +160,15 @@ CREATE TABLE IF NOT EXISTS feedback_log (
   context    TEXT NOT NULL DEFAULT '{}',    -- JSON: model; Strict thêm procs (thủ tục được chọn), behavior, flags
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE(engine, msg_key)
+);
+
+-- Đường nhanh (fast path): đặc tả biên dịch từ bản ghi của một bộ dữ liệu (kiểu cột, tên trường, cách hỏi, bảng con)
+-- + kết quả bài tự kiểm (loại câu nào được bật cho bảng nào). Xem server/fastpath/. Dựng lại khi bộ dữ liệu được nạp / xử lý lại.
+CREATE TABLE IF NOT EXISTS fastpath (
+  dataset_id  INTEGER PRIMARY KEY REFERENCES datasets(id) ON DELETE CASCADE,
+  status      TEXT NOT NULL DEFAULT 'queued',    -- queued | building | ready | error | skipped
+  message     TEXT NOT NULL DEFAULT '',
+  spec        TEXT NOT NULL DEFAULT '{}',
+  report      TEXT NOT NULL DEFAULT '{}',
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );

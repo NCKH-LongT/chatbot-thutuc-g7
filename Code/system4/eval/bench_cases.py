@@ -109,6 +109,87 @@ CASES = [
 ]
 
 
+# ---------------- tourism (bộ MÙ): du_lich_gia.xlsx (make_tourism.py). Soạn 18/10/2026 TRƯỚC khi làm đường nhanh (fast path),
+# không chỉnh câu / đáp án theo kết quả. num = con số đứng riêng (không dính số khác). Đáp án lấy từ make_tourism.py.
+VN = "du_lich"
+TOUR_CASES = [
+    C("tv-b01", "tourism", "blind", [VN], "Giá phòng một đêm ở Khách sạn Mây Ngàn là bao nhiêu?", any=["1.450.000", "1,450,000", "1450000", "1,45 triệu"], source="Khách sạn Mây Ngàn"),
+    C("tv-b02", "tourism", "blind", [VN], "Số điện thoại của khách sạn Cố Đô?", any=["0900 101 005", "0900101005"], source="Khách sạn Cố Đô"),
+    C("tv-b03", "tourism", "blind", [VN], "Đặc sản của Huế là gì?", all=["bún bò"]),
+    C("tv-b04", "tourism", "blind", [VN], "Đi Sa Pa mùa nào đẹp nhất?", any=["tháng 9"]),
+    C("tv-b05", "tourism", "blind", [VN], "Tour Hội An đêm hoa đăng khởi hành ngày nào?", any=["20/11/2026", "2026-11-20", "20/11", "20 tháng 11"]),
+    C("tv-b06", "tourism", "blind", [VN], "Vé tham quan Vịnh Hạ Long giá bao nhiêu?", any=["290.000", "290,000", "290000"]),
+    C("tv-b07", "tourism", "blind", [VN], "Khách sạn Phố Hội ở địa chỉ nào?", all=["Trần Phú"]),
+    C("tv-b08", "tourism", "blind", [VN], "Tour T09 kéo dài mấy ngày?", num=["4"]),
+    C("tv-b09", "tourism", "blind", [VN], "Khách sạn Sóng Bạc mấy sao?", num=["5"]),
+    C("tv-b10", "tourism", "blind", [VN], "Đà Lạt có hoạt động gì nổi bật?", any=["đồi chè", "vườn hoa", "Xuân Hương"]),
+    C("tv-b11", "tourism", "blind", [VN], "gia phong khach san doi thong bao nhieu", any=["700.000", "700,000", "700000"]),
+    C("tv-b12", "tourism", "blind", [VN], "dac san can tho", any=["lẩu mắm", "bánh xèo"]),
+    C("tv-b13", "tourism", "blind", [VN], ["Khách sạn Hoa Đào ở đâu?", "Giá phòng thì sao?"], any=["1.100.000", "1,100,000", "1100000"]),
+    C("tv-b14", "tourism", "blind", [VN], ["Tour Đà Lạt săn mây giá bao nhiêu?", "Còn chỗ không?"],
+      any=["hết chỗ", "không còn", "không ghi", "chưa có thông tin", "không có thông tin"]),
+    C("tv-b15", "tourism", "blind", [VN], "Có bao nhiêu khách sạn 5 sao?", num=["3"]),
+    C("tv-b16", "tourism", "blind", [VN], "Khách sạn nào có hồ bơi?",
+      all=["Ngọc Vịnh", "Phố Hội", "Sóng Bạc", "Hoa Đào", "Biển Xanh Nha Trang", "Biển Xanh Phú Quốc"]),
+    C("tv-b17", "tourism", "blind", [VN], "Liệt kê các tour đi Đà Lạt", all=["Đà Lạt ngàn hoa", "Đà Lạt săn mây"]),
+    C("tv-b18", "tourism", "blind", [VN], "Có bao nhiêu điểm đến ở miền Trung?", num=["5"]),
+    C("tv-b19", "tourism", "blind", [VN], "Tour nào rẻ nhất?", all=["Tràng An"]),
+    C("tv-b20", "tourism", "blind", [VN], "Những tour nào khởi hành trong tháng 12?", all=["Đà Lạt ngàn hoa", "Đà Lạt săn mây", "Nha Trang biển đảo"]),
+    C("tv-b21", "tourism", "blind", [VN], "Ở Đà Lạt có mấy khách sạn?", num=["2"]),
+    C("tv-b22", "tourism", "blind", [VN], "Muốn ngắm ruộng bậc thang thì đi đâu?", all=["Sa Pa"]),
+    C("tv-b23", "tourism", "blind", [VN], "Mình thích lặn biển ngắm san hô, nên đi đâu?", any=["Nha Trang", "Côn Đảo"]),
+    C("tv-b24", "tourism", "blind", [VN], "Khách sạn Biển Xanh giá phòng bao nhiêu?", ask_back=True,
+      choices_all=["Biển Xanh Nha Trang", "Biển Xanh Phú Quốc"]),
+    C("tv-b25", "tourism", "blind", [VN], "Giá vé máy bay đi Phú Quốc bao nhiêu?", refusal=True, none=["50.000", "50,000"]),
+    C("tv-b26", "tourism", "blind", [VN], "Khách sạn Hoàng Gia Mộng Mơ ở Đà Lạt giá bao nhiêu?", refusal=True, none=["700.000", "1.100.000"]),
+    C("tv-b27", "tourism", "blind", [VN], "Đặc sản của Hà Giang là gì?", refusal=True),
+    C("tv-b28", "tourism", "blind", [VN], "Lịch bay từ Hà Nội vào Huế thế nào?", refusal=True),
+    C("tv-b29", "tourism", "blind", [VN], "Khách sạn Sông Hậu có hồ bơi không?", any=["không"]),
+    C("tv-b30", "tourism", "blind", [VN], "Phong Nha có gì chơi?", any=["động Phong Nha", "Thiên Đường", "hang"]),
+    C("tv-b31", "tourism", "blind", [VN], "Mã tour của tour Miền Tây sông nước là gì?", all=["T10"]),
+    C("tv-b32", "tourism", "blind", [VN], "Côn Đảo thuộc tỉnh nào?", all=["Vũng Tàu"]),
+]
+
+
+# ---------------- shop (bộ MÙ thứ hai): cua_hang_gia.xlsx (make_shop.py). Soạn 18/10/2026 SAU lượt đo đầu (bộ du lịch đã bị xem kết quả)
+# và TRƯỚC khi sửa 5 lỗi đường nhanh; không chỉnh câu / đáp án theo kết quả. Đáp án lấy từ make_shop.py.
+SH = "cua_hang"
+SHOP_CASES = [
+    C("sh-b01", "shop", "blind", [SH], "Giá bán của Laptop Kim Long 14 là bao nhiêu?", any=["15.900.000", "15,900,000", "15900000", "15,9 triệu"], source="Laptop Kim Long 14"),
+    C("sh-b02", "shop", "blind", [SH], "Điện thoại Sao Mai S1 bảo hành mấy tháng?", num=["18"]),
+    C("sh-b03", "shop", "blind", [SH], "Số điện thoại chi nhánh Cầu Giấy?", any=["0911 200 004", "0911200004"]),
+    C("sh-b04", "shop", "blind", [SH], "Chi nhánh Hải Châu ở địa chỉ nào?", all=["Bạch Đằng"]),
+    C("sh-b05", "shop", "blind", [SH], "Tivi Thủy Tinh 43 inch còn hàng không?", any=["hết hàng", "không còn", "không ghi", "chưa có thông tin", "không có thông tin", "hết"]),
+    C("sh-b06", "shop", "blind", [SH], "Mã sản phẩm của Tủ lạnh Bạch Dương 320L là gì?", all=["SP12"]),
+    C("sh-b07", "shop", "blind", [SH], "SP07 là sản phẩm gì?", all=["Tai nghe Sóng Âm B2"]),
+    C("sh-b08", "shop", "blind", [SH], "Chương trình Black Friday giảm bao nhiêu?", all=["15%"]),
+    C("sh-b09", "shop", "blind", [SH], "Khuyến mãi Tựu trường áp dụng cho sản phẩm nào?", all=["Laptop"]),
+    C("sh-b10", "shop", "blind", [SH], "gia may giat bach duong 9kg", any=["9.790.000", "9,790,000", "9790000"]),
+    C("sh-b11", "shop", "blind", [SH], ["Laptop Kim Long 16 Pro giá bao nhiêu?", "Bảo hành bao lâu?"], num=["24"]),
+    C("sh-b12", "shop", "blind", [SH], ["Chi nhánh Quận 1 mở cửa mấy giờ?", "Còn số điện thoại thì sao?"], any=["0911 200 001", "0911200001"]),
+    C("sh-b13", "shop", "blind", [SH], "Có bao nhiêu sản phẩm của hãng Lotus?", num=["4"]),
+    C("sh-b14", "shop", "blind", [SH], "Liệt kê các laptop", all=["Kim Long 14", "Kim Long 16 Pro"]),
+    C("sh-b15", "shop", "blind", [SH], "Có mấy chi nhánh ở Hà Nội?", num=["2"]),
+    C("sh-b16", "shop", "blind", [SH], "Chi nhánh nào có bãi đỗ ô tô?", all=["Thủ Đức", "Cầu Giấy", "Hải Châu"]),
+    C("sh-b17", "shop", "blind", [SH], "Những sản phẩm nào đang hết hàng?", all=["Sao Mai S1", "Kim Long 16 Pro", "Thủy Tinh 43", "Quạt điều hòa"]),
+    C("sh-b18", "shop", "blind", [SH], "Có bao nhiêu sản phẩm bảo hành 24 tháng?", num=["6"]),
+    C("sh-b19", "shop", "blind", [SH], "Sản phẩm nào đắt nhất?", all=["Kim Long 16 Pro"]),
+    C("sh-b20", "shop", "blind", [SH], "Khuyến mãi nào diễn ra trong tháng 11?", all=["Black Friday"]),
+    C("sh-b21", "shop", "blind", [SH], "Liệt kê các sản phẩm phụ kiện", all=["Tai nghe Sóng Âm B2", "Sạc nhanh Sóng Âm 65W", "Lotus Fit"]),
+    C("sh-b22", "shop", "blind", [SH], "Điện thoại Lotus giá bao nhiêu?", ask_back=True, choices_all=["Lotus A5", "Lotus A7"]),
+    C("sh-b23", "shop", "blind", [SH], "Có bao nhiêu sản phẩm ra mắt năm 2026?", num=["9"]),
+    C("sh-b24", "shop", "blind", [SH], "Mình muốn mua đồ để nghe nhạc, có gì không?", any=["Tai nghe"]),
+    C("sh-b25", "shop", "blind", [SH], "Có chương trình nào cho người đổi điện thoại cũ không?", any=["Đổi điện thoại cũ", "500.000"]),
+    C("sh-b26", "shop", "blind", [SH], "Giá iPhone 17 Pro Max bao nhiêu?", refusal=True, none=["4.990.000", "6.490.000"]),
+    C("sh-b27", "shop", "blind", [SH], "Chi nhánh ở Hải Phòng ở đâu?", refusal=True),
+    C("sh-b28", "shop", "blind", [SH], "Laptop Kim Long 14 nặng bao nhiêu kg?", refusal=True),
+    C("sh-b29", "shop", "blind", [SH], "Cửa hàng có giao hàng miễn phí không?", refusal=True),
+    C("sh-b30", "shop", "blind", [SH], "Nồi cơm điện Hạt Ngọc 1.8L thuộc loại nào?", all=["Gia dụng"]),
+    C("sh-b31", "shop", "blind", [SH], "Tivi Thủy Tinh 55 inch ra mắt ngày nào?", any=["30/08/2025", "2025-08-30", "30/8/2025", "30 tháng 8"]),
+    C("sh-b32", "shop", "blind", [SH], "Hãng của Quạt điều hòa Hạt Ngọc Q5 là gì?", all=["Hạt Ngọc"]),
+]
+
+
 def procedure_cases() -> list[dict]:
     """Câu về thủ tục sinh từ MAU_100_THU_TUC.xlsx như nv3_specialist.py (6 thủ tục: 3 dev, 3 exam)."""
     import openpyxl
@@ -130,4 +211,4 @@ def procedure_cases() -> list[dict]:
 
 
 def all_cases() -> list[dict]:
-    return CASES + procedure_cases()
+    return CASES + procedure_cases() + TOUR_CASES + SHOP_CASES

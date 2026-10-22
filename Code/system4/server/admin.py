@@ -1,4 +1,5 @@
-"""Trang Quản trị (NV4) — chỉ dev. Ba tab: Dữ liệu Strict (thủ tục của System 3), Dữ liệu người dùng, Người dùng."""
+"""Trang Quản trị (NV4) — chỉ dev: tài khoản + Thử tìm kiếm. API dữ liệu Strict / dữ liệu người dùng / thống kê dùng chung với bảng điều khiển
+lĩnh vực (hộp Lĩnh vực ở trang chính, dev + cán bộ)."""
 from __future__ import annotations
 
 import csv
@@ -13,7 +14,7 @@ from fastapi.responses import FileResponse, RedirectResponse, Response
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from . import auth, chat, config, datasets, db, guard, llm, persona, procs, procs_xlsx, search
+from . import account, auth, chat, config, datasets, db, guard, llm, persona, procs, procs_xlsx, search
 
 
 class NewUser(BaseModel):
@@ -63,6 +64,15 @@ def make_router(s3_store) -> APIRouter:
             raise HTTPException(403, "Chỉ tài khoản dev được dùng trang Quản trị")
         return u
 
+    def staff(request: Request) -> dict:
+        """Bảng điều khiển lĩnh vực (hộp Lĩnh vực): dữ liệu Strict, dữ liệu người dùng, thống kê — dev và cán bộ."""
+        u = getattr(request.state, "user", None)
+        if not u:
+            raise HTTPException(401, "Cần đăng nhập")
+        if u["role"] not in db._ELEVATED:
+            raise HTTPException(403, "Chỉ dev và cán bộ được quản lý dữ liệu lĩnh vực")
+        return u
+
     def procs_ready():
         if not state["procs_ready"]:
             procs.init()   # lần đầu: chép dữ liệu gốc của System 3 thành phiên bản "Gốc"
@@ -94,19 +104,39 @@ def make_router(s3_store) -> APIRouter:
     def other_active_devs(uid: int) -> int:
         return db.run("SELECT COUNT(*) n FROM users WHERE role='dev' AND disabled=0 AND id<>?", (uid,), one=True)["n"]
 
+    def _merged_top(limit: int) -> list[dict]:
+        """G2.3: proc_stats gộp theo mã chuẩn của phiên bản đang dùng (mã cũ Cổng đã cấp lại -> mã mới)."""
+        from system3.data import api as data_api
+        conn = data_api.connect()
+        try:
+            out: dict[str, dict] = {}
+            for r in s3_store.top_procs(100000):
+                pid = data_api.canonical(conn, r["proc_id"])
+                cur = out.get(pid)
+                if cur is None:
+                    out[pid] = {**r, "proc_id": pid}
+                else:
+                    cur["n"] += r["n"]
+                    cur["last_at"] = max(cur["last_at"] or "", r["last_at"] or "")
+                    if pid == r["proc_id"]:
+                        cur["label"] = r["label"]
+        finally:
+            conn.close()
+        return sorted(out.values(), key=lambda x: (x["n"], x["last_at"] or ""), reverse=True)[:limit]
+
     @r.get("/stats")
     def stats(request: Request, limit: int = 20):
         """Thống kê: thủ tục Strict được trả lời nhiều nhất, số 👍/👎, số tài khoản theo loại."""
-        dev(request)
+        staff(request)
         fb = lambda t: {k: db.run(f"SELECT COUNT(*) n FROM {t} WHERE feedback=?", (v,), one=True)["n"] for k, v in (("up", 1), ("down", -1))}
-        return {"procedures": s3_store.top_procs(max(1, min(limit, 200))),
+        return {"procedures": _merged_top(max(1, min(limit, 200))),
                 "feedback": {"friendly": fb("messages"), "strict": fb("strict_nodes")},
                 "roles": {x["role"]: x["n"] for x in db.run("SELECT role, COUNT(*) n FROM users GROUP BY role", many=True)}}
 
     @r.get("/feedback")
     def feedback_export(request: Request, value: int = 0, limit: int = 500):
         """Các cặp (câu hỏi, câu trả lời) đã được 👍 (value=1) hoặc 👎 (value=-1); 0 = cả hai. Dùng để rà lỗi / làm dữ liệu fine-tune."""
-        dev(request)
+        staff(request)
         where, args = ("WHERE value=?", (value,)) if value in (1, -1) else ("", ())
         rows = db.run(f"SELECT engine,domain_id,conversation_id,prompt,answer,value,created_at FROM feedback_log {where} ORDER BY id DESC LIMIT ?",
                       (*args, max(1, min(limit, 5000))), many=True)
@@ -125,13 +155,13 @@ def make_router(s3_store) -> APIRouter:
     @r.get("/feedback.jsonl")
     def feedback_jsonl(request: Request, value: int = 0):
         """Tải file .jsonl, mỗi dòng một cặp {engine, domain_id, prompt, answer, value, context, created_at}."""
-        dev(request)
+        staff(request)
         return download("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in feedback_rows(value)), "application/x-ndjson; charset=utf-8", value, "jsonl")
 
     @r.get("/feedback.csv")
     def feedback_csv(request: Request, value: int = 0):
         """Tải file .csv (UTF-8 có BOM nên Excel mở đúng tiếng Việt). Context trải thành cột; ô bắt đầu bằng = + - @ bị đệm dấu ' để Excel không chạy như công thức."""
-        dev(request)
+        staff(request)
         safe = lambda v: "'" + v if isinstance(v, str) and v[:1] in tuple("=+-@" + chr(9) + chr(13)) else v
         out = io.StringIO()
         w = csv.writer(out)
@@ -198,15 +228,7 @@ def make_router(s3_store) -> APIRouter:
             raise HTTPException(404, "không có người dùng này")
         if target["role"] == "dev" and other_active_devs(uid) == 0:
             raise HTTPException(422, "Phải còn ít nhất một tài khoản dev đang hoạt động")
-        for cid in db.strict_ids(uid):   # hội thoại Strict nằm trong DB System 3
-            for b in db.strict_branches(cid):
-                s3_store.delete_conversation(b)
-                db.forget_strict(b)
-            s3_store.delete_conversation(cid)
-            db.forget_strict(cid)
-        for d in db.list_datasets(uid):
-            datasets.delete(d)
-        db.run("DELETE FROM users WHERE id=?", (uid,))   # phiên, hội thoại Friendly, bộ nhớ... xoá theo khoá ngoại
+        account.purge_user(s3_store, uid)   # G1.4: xoá mọi thứ của người đó; 👍/👎 giữ nhưng bỏ danh tính
         return {"users": user_rows()}
 
     @r.get("/users/{uid}/conversations")
@@ -253,7 +275,8 @@ def make_router(s3_store) -> APIRouter:
         system = persona.build([], "", instructions, fast=True, evidence=out, upset=persona.negative(body.query))
         msgs = [{"role": "system", "content": system}, {"role": "user", "content": body.query}]
         ans, raw = chat.AnswerStream(), []
-        async with llm.Turn():
+        from core import gpu
+        async with llm.Turn(gpu.P1):   # phòng thử của dev: sau câu hỏi của người dùng
             async for t in llm.stream_json(msgs, persona.FAST_SCHEMA_KB):
                 if isinstance(t, llm.Thought):
                     continue
@@ -264,13 +287,13 @@ def make_router(s3_store) -> APIRouter:
     # ----------------------------------------------------- dữ liệu người dùng
     @r.get("/datasets")
     def all_datasets(request: Request):
-        dev(request)
+        staff(request)
         return {"datasets": db.list_datasets(None)}
 
     # ----------------------------------------------------- dữ liệu Strict
     @r.get("/procs")
     def procs_state(request: Request):
-        dev(request)
+        staff(request)
         procs_ready()
         ch = procs.draft_changes()
         return {"versions": procs.versions(), "active_id": procs.active_id(), "original_id": procs.original_id(),
@@ -279,7 +302,7 @@ def make_router(s3_store) -> APIRouter:
 
     @r.get("/procs/records")
     def procs_records(request: Request, version: str = "draft", q: str = "", offset: int = 0, limit: int = 50):
-        dev(request)
+        staff(request)
         procs_ready()
         recs, _, ch = err(procs.view, version)
         ql = q.strip().lower()
@@ -293,7 +316,7 @@ def make_router(s3_store) -> APIRouter:
 
     @r.get("/procs/record/{proc_id}")
     def procs_record(proc_id: str, request: Request, version: str = "draft"):
-        dev(request)
+        staff(request)
         procs_ready()
         _, by_id, ch = err(procs.view, version)
         if proc_id not in by_id:
@@ -302,7 +325,7 @@ def make_router(s3_store) -> APIRouter:
 
     @r.put("/procs/draft/{proc_id}")
     def draft_put(proc_id: str, body: RecordIn, request: Request):
-        dev(request)
+        staff(request)
         procs_ready()
         _, by_id, _ = procs.view("draft")
         if proc_id not in by_id:
@@ -315,52 +338,52 @@ def make_router(s3_store) -> APIRouter:
 
     @r.delete("/procs/draft/{proc_id}")
     def draft_delete(proc_id: str, request: Request):
-        dev(request)
+        staff(request)
         procs_ready()
         procs.draft_put(proc_id, None)
         return {"ok": True}
 
     @r.post("/procs/draft/{proc_id}/revert")
     def draft_revert(proc_id: str, request: Request):
-        dev(request)
+        staff(request)
         procs.draft_revert(proc_id)
         return {"ok": True}
 
     @r.post("/procs/draft/save")
     def draft_save(body: LabelIn, request: Request):
-        dev(request)
+        staff(request)
         procs_ready()
         vid = err(procs.draft_save, body.label)
         return {"version_id": vid, "diff": procs.diff(str(procs.active_id()), str(vid))["counts"]}
 
     @r.delete("/procs/draft")
     def draft_discard(request: Request):
-        dev(request)
+        staff(request)
         procs.draft_discard()
         return {"ok": True}
 
     @r.delete("/procs/versions/{vid}")
     def delete_version(vid: int, request: Request):
-        dev(request)
+        staff(request)
         procs_ready()
         err(procs.delete_version, vid)
         return {"ok": True}
 
     @r.get("/procs/diff")
     def diff(request: Request, a: str, b: str):
-        dev(request)
+        staff(request)
         procs_ready()
         return err(procs.diff, a, b)
 
     @r.get("/procs/diff/{proc_id}")
     def diff_record(proc_id: str, request: Request, a: str, b: str):
-        dev(request)
+        staff(request)
         procs_ready()
         return err(procs.diff_record, a, b, proc_id)
 
     @r.post("/procs/apply")
     def apply(body: ApplyIn, request: Request):
-        dev(request)
+        staff(request)
         procs_ready()
         try:
             procs.apply(body.version_id)
@@ -370,7 +393,7 @@ def make_router(s3_store) -> APIRouter:
 
     @r.post("/procs/scrape")
     def scrape(body: ScrapeIn, request: Request):
-        dev(request)
+        staff(request)
         procs_ready()
         err(procs.scrape, max(0, body.limit))
         return {"job": procs.job()}
@@ -379,7 +402,7 @@ def make_router(s3_store) -> APIRouter:
     def export_xlsx(request: Request, version: str = "active"):
         """Xuất DB thủ tục ra Excel (procs_xlsx). version = "active" (DB Strict đang dùng, chụp sang tệp tạm nên "Áp dụng"
         vẫn thay được DB; ~20 s) hoặc id một phiên bản đã lưu (dựng DB tạm từ tệp .jsonl của nó; thêm ~1 phút)."""
-        dev(request)
+        staff(request)
         procs_ready()
         j = procs.job()
         if j["state"] == "running" and j["kind"] == "apply":
@@ -394,7 +417,8 @@ def make_router(s3_store) -> APIRouter:
         if not v:
             raise HTTPException(404, f"không có phiên bản {vid}")
         if vid == active:
-            src, where = Path(procs._s3_data().DB_PATH), "data/runtime/system3.db (the database Strict mode answers from right now)"
+            src = procs.db_path_of(vid) or Path(procs._s3_data().active_db_path())
+            where = f"{src.name} in data/runtime/knowledge (the database Strict mode answers from right now)"
         else:
             src, where = procs.VERSIONS / f"{vid}.jsonl", (f"saved version {vid} (system4/runtime/procs/versions/{vid}.jsonl), "
                                                           "built into a temporary database with system3.data.build")
@@ -412,7 +436,7 @@ def make_router(s3_store) -> APIRouter:
 
     @r.get("/procs/job")
     def job(request: Request):
-        dev(request)
+        staff(request)
         return {"job": procs.job(), "log": procs.scrape_log_tail() if procs.job()["kind"] == "scrape" else []}
 
     return r

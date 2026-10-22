@@ -1,10 +1,11 @@
 """Dựng system3/data/runtime/system3.db từ snapshot.  Chạy: python -m system3.data.build"""
 from __future__ import annotations
 
+import json
 import re
 import sys
 
-from . import DB_PATH, records as R
+from . import DB_PATH, checks, fees as F, lineage, records as R
 from .load import connect_new, import_records, load_snapshot
 from .textutil import fold
 from . import team_overlay
@@ -13,7 +14,8 @@ EXTRA_SCHEMA = """
 CREATE TABLE fees_clean (
     proc_id TEXT NOT NULL, kind TEXT NOT NULL CHECK (kind IN ('numeric','text_only','none')),
     amount_value REAL, amount_text TEXT NOT NULL DEFAULT '',
-    fee_type TEXT NOT NULL DEFAULT '', submission_method TEXT NOT NULL DEFAULT '');
+    fee_type TEXT NOT NULL DEFAULT '', submission_method TEXT NOT NULL DEFAULT '',
+    currency TEXT NOT NULL DEFAULT '', amount_vnd INTEGER, amount_ok INTEGER NOT NULL DEFAULT 0);
 CREATE INDEX idx_fc_proc ON fees_clean(proc_id);
 CREATE TABLE field_chunks (
     proc_id TEXT NOT NULL, field TEXT NOT NULL, case_ordinal INTEGER NOT NULL DEFAULT -1,
@@ -74,9 +76,9 @@ def _fee_kind(f: dict) -> str:
 
 
 def _fee_line(f: dict) -> str:
-    amt = f"{f['amount_value']:,.0f} đồng".replace(",", ".") if f["amount_value"] else ""
-    return " - ".join(x for x in (f["fee_type"], amt, f["amount_text"],
-                                  f["submission_method"]) if x)
+    """Dòng phí trong field_chunks: cùng cách in với answerer (data/fees.py: đúng đơn vị, số không chắc thì in nguyên văn)."""
+    amt = F.display({**f, **F.normalize(f["amount_value"], f["amount_text"], f.get("currency_id"))})
+    return " - ".join(x for x in (f["fee_type"], amt, f["submission_method"]) if x)
 
 
 def _bullet(name: str, qty: str = "") -> str:
@@ -99,9 +101,10 @@ def build_fees_and_chunks(conn):
             # Có dòng rỗng/0 hoặc không có dòng: kind=none. KHÔNG suy ra miễn phí.
             conn.execute("INSERT INTO fees_clean (proc_id, kind) VALUES (?, 'none')", (pid,))
         for f in rec["fees_clean"]:
-            conn.execute("INSERT INTO fees_clean VALUES (?,?,?,?,?,?)",
+            n = F.normalize(f["amount_value"], f["amount_text"], f.get("currency_id"))
+            conn.execute("INSERT INTO fees_clean VALUES (?,?,?,?,?,?,?,?,?)",
                          (pid, _fee_kind(f), f["amount_value"], f["amount_text"],
-                          f["fee_type"], f["submission_method"]))
+                          f["fee_type"], f["submission_method"], n["currency"], n["amount_vnd"], n["amount_ok"]))
 
         # ── field_chunks ──
         st = {k: rec[v] or "unknown" for k, v in FIELD_STATUS.items()}
@@ -195,15 +198,23 @@ def main() -> int:
     conn = connect_new()
     conn.executescript(EXTRA_SCHEMA)
     n = import_records(conn, load_snapshot())
+    links = checks.normalize_links(conn)   # G2.2: link Cổng theo source_id (UUID), cho mọi phiên bản
+    lin = lineage.build(conn)              # G2.3: mã cũ (bản Gốc + các bản System 4 truyền vào) -> mã trong bản này
     conn.executemany("INSERT INTO synonyms VALUES (?,?)", SEED_SYNONYMS.items())
     build_fees_and_chunks(conn)
     build_conditions_families(conn)
     print(f"team_fee_overlay {team_overlay.build(conn)}")
+    checks.build_flat(conn)                # G2.2/G4.2: bảng phẳng một dòng / thủ tục
     conn.commit()
     for t in ("procedures", "fees_clean", "field_chunks", "condition_index", "families",
-              "synonyms"):
+              "synonyms", "proc_flat"):
         print(f"{t:16s}{conn.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0]}")
+    unmatched = [dict(old_id=r[0], name=r[1]) for r in conn.execute(
+        "SELECT old_id, old_name FROM proc_lineage WHERE new_id IS NULL ORDER BY old_id")]
+    rep = {**checks.report(conn), "links": links, "lineage": {**lin, "unmatched_list": unmatched}}
     conn.close()
+    DB_PATH.with_name(DB_PATH.name + ".report.json").write_text(json.dumps(rep, ensure_ascii=False, indent=1), encoding="utf-8")
+    print("báo cáo kiểm: " + ", ".join(f"{k}={v['n']}" for k, v in rep.items() if isinstance(v, dict) and "n" in v))
     print(f"nạp {n} thủ tục -> {DB_PATH}")
     return 0
 

@@ -99,6 +99,8 @@ def delete(ds: dict) -> None:
     except Exception as e:
         log.warning("xoá vector: %s", e)
     db.delete_records(ds["id"])
+    from . import fastpath
+    fastpath.delete(ds["id"])
     db.run("DELETE FROM datasets WHERE id=?", (ds["id"],))
     shutil.rmtree(folder(ds["user_id"], ds["id"]), ignore_errors=True)
 
@@ -131,6 +133,14 @@ def synced(ds: dict) -> bool:
     return '"source": "abi_sync"' in (ds.get("mapping") or "")
 
 
+def managed(ds: dict) -> str:
+    """Bộ dữ liệu do đồng bộ quản lý (bật / tắt / xoá theo PHIÊN BẢN, không bằng tay): "abi" | "flm" | "" (tệp tải lên thường)."""
+    if synced(ds):
+        return "abi"
+    from ..flm import store as flm_store
+    return "flm" if flm_store.is_flm_dataset(ds) else ""
+
+
 def process(ds_id: int) -> None:
     ds = db.get_dataset(ds_id)
     if not ds or synced(ds):
@@ -142,6 +152,8 @@ def process(ds_id: int) -> None:
     except Exception:
         pass
     db.delete_records(ds_id)
+    from . import fastpath
+    fastpath.delete(ds_id)   # đặc tả cũ trỏ tới bản ghi cũ: bỏ, dựng lại khi nạp xong
     try:
         overrides = json.loads(ds.get("mapping") or "{}").get("overrides") or {}   # dòng tiêu đề người dùng tự chọn ("Cách đọc")
     except ValueError:
@@ -159,7 +171,9 @@ def process(ds_id: int) -> None:
         if not db.get_dataset(ds_id):
             return   # người dùng xoá giữa chừng
         batch = recs[i:i + EMBED_BATCH]
-        vecs = search.embed([r["text"] for r in batch])
+        from core import gpu
+        with gpu.slot(gpu.P3):   # G3.1: tạo vector khi nạp tệp nhường câu hỏi đang chờ
+            vecs = search.embed([r["text"] for r in batch])
         search.add_vectors(ids[i:i + EMBED_BATCH], vecs, ds_id, ds["user_id"])
         db.update_dataset(ds_id, progress=30 + int(68 * min(len(recs), i + EMBED_BATCH) / len(recs)),
                           message=f"Đang tạo chỉ mục tìm theo nghĩa {min(len(recs), i + EMBED_BATCH)}/{len(recs)}…")
@@ -168,6 +182,8 @@ def process(ds_id: int) -> None:
         active = 0   # vượt giới hạn cứng: vẫn sẵn sàng nhưng để tắt
     db.update_dataset(ds_id, status="ready", progress=100, n_records=len(recs), kind=mapping["kind"], active=active,
                       message=ingest.describe(mapping, len(recs)) + ("" if active else " · Đang TẮT vì vượt giới hạn bật"))
+    from . import fastpath
+    fastpath.enqueue(ds_id)   # đường nhanh: biên dịch + tự kiểm ở luồng riêng (bộ dữ liệu đã dùng được ngay bằng đường cũ)
 
 
 def resume_unfinished() -> None:

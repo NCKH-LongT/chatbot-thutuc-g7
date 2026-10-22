@@ -16,7 +16,7 @@ import time
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -29,7 +29,7 @@ import threading
 
 from config import (DEV_MODE, HOST, LLM_MODEL, PORT, TABLE_BUTTON, WEB_DIR, WEBSEARCH_MODE, WEBSEARCH_RESULTS,
                     WEBSEARCH_TIMEOUT)
-from core import queue, websearch
+from core import aihealth, queue, websearch
 from core.llm import loaded_models, model_name, warm_up
 from planner import hybrid
 from policy import mask_pii
@@ -99,9 +99,19 @@ def set_config(body: ConfigIn):
     return get_config()
 
 
-# ---- Phase 26: bộ nhớ người dùng (hồ sơ + nhớ lựa chọn MCQ), khoá theo header X-Client-Id (thiếu = 'default')
-# FINAL-PRODUCT: [B4][MEM] client_id tự khai, không xác thực: mọi endpoint /memory* tin id này. Bản cuối: lấy user từ đăng nhập (mục 6)
-def _cid(x_client_id: str | None = Header(None)) -> str:
+# ---- Phase 26: bộ nhớ người dùng (hồ sơ + nhớ lựa chọn MCQ).
+# G1.2 (P02/F2): bật System 4 -> khoá theo TÀI KHOẢN đăng nhập ("u<id>", do middleware s4_gate gắn request.state.user), bỏ qua
+# header X-Client-Id và 'default'; cầu nối Strict gửi kèm cookie nên không cần truyền gì thêm.
+# Chỉ chạy System 3 một mình (S4_ENABLED=0, không đăng nhập): vẫn theo header X-Client-Id (thiếu = 'default') như trước.
+_S4 = os.environ.get("S4_ENABLED", "0") == "1"
+
+
+def _cid(request: Request, x_client_id: str | None = Header(None)) -> str:
+    user = getattr(request.state, "user", None)
+    if user:
+        return f"u{int(user['id'])}"
+    if _S4:
+        raise HTTPException(401, "Cần đăng nhập")
     try:
         return user_memory.client_id(x_client_id)
     except ValueError as e:
@@ -296,7 +306,7 @@ def dev_variants_page():
 
 
 @app.post("/chat")
-async def chat(body: ChatIn, cid_mem: str = Depends(_cid)):
+async def chat(body: ChatIn, request: Request, cid_mem: str = Depends(_cid)):
     text = body.text.strip()
     if not text:
         raise HTTPException(422, "text rỗng")
@@ -308,10 +318,11 @@ async def chat(body: ChatIn, cid_mem: str = Depends(_cid)):
         clarify = prev["clarify"] if prev else None
     turn = orchestrator.Turn(cid, text, body.reply_to, store.recent_history(cid),
                              store.session_facts(cid), store.shown_procedures(cid), clarify,
-                             pick_proc=body.proc_id, memory=user_memory.for_policy(cid_mem))
-    # FINAL-PRODUCT: [B3] lưu nguyên văn người dùng gõ (chưa che CCCD/SĐT) vào messages.content; title hộp thoại cũng lấy 60 ký tự đầu. Bản cuối: che PII trước khi ghi (mục 2)
+                             pick_proc=body.proc_id, memory=user_memory.for_policy(cid_mem), profile_province=user_memory.profile_province(cid_mem),
+                             rules_only=aihealth.rules_only(request))
+    # G1.3: store che CCCD/SĐT khi ghi (lượt này vẫn xử lý bằng câu gốc trong bộ nhớ)
     store.add_message(cid, "user", text)
-    store.set_title_if_new(cid, mask_pii(text))
+    store.set_title_if_new(cid, text)
 
     box = {}
 
@@ -345,9 +356,11 @@ async def chat(body: ChatIn, cid_mem: str = Depends(_cid)):
     flat = orchestrator.flat_text({"blocks": blocks, "clarify": clar})   # thẻ hỏi lại kèm danh sách đánh số để "cái thứ hai" trỏ đúng
     # FINAL-PRODUCT: [B2][B3] plan_json lưu cả plan của lượt; xem store.add_message (mục 1, 2)
     mid = store.add_message(cid, "assistant", flat, kind, r.get("plan"),
-                            {"blocks": blocks, "clarify": clar})
+                            {"blocks": blocks, "clarify": clar}, pii_from=text)
     if r.get("trace") is not None:
         store.add_trace(cid, mid, r["trace"], box["ms"])
+    if r.get("first_proc"):
+        store.set_title_procedure(cid, r["first_proc"])   # G4.5 (D6): chỉ đổi khi tên còn tạm
     out = {"conversation_id": cid, "message_id": mid, "blocks": blocks, "clarify": clar, "kind": kind}
     if r.get("memory_suggest"):            # Phase 26: UI hỏi "Nhớ đối tượng ...?"
         out["memory_suggest"] = r["memory_suggest"]

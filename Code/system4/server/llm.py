@@ -10,6 +10,7 @@ import os
 import threading
 
 import ollama
+from core import aihealth, gpu   # G3.1: bộ lập lịch GPU dùng chung với System 3; G3.3: ngắt mạch Ollama
 
 from . import config, settings
 
@@ -37,10 +38,6 @@ def keep_alive():
     return -1 if settings.get("KEEP_MODELS_LOADED") else "30m"
 
 
-def think_model() -> str:
-    return settings.get("THINK_MODEL") or settings.get("FRIENDLY_MODEL")
-
-
 class LLMError(RuntimeError):
     pass
 
@@ -49,49 +46,53 @@ class QueueFull(RuntimeError):
     pass
 
 
-_gate = asyncio.Semaphore(max(1, int(os.environ.get("S4_CONCURRENCY", "1"))))   # >1 chỉ có ích khi Ollama đặt OLLAMA_NUM_PARALLEL tương ứng
-_waiting = 0
-
-
 def queue_position() -> int:
-    """Số lượt đang chạy/đang chờ trước một người mới đến."""
-    return _waiting + (1 if _gate.locked() else 0)
+    """Số lượt đang chạy/đang chờ trước một người mới đến (tính chung Strict + Friendly, G3.1)."""
+    return gpu.position(gpu.P0)
 
 
 class Turn:
-    """Giữ chỗ trong hàng: `async with Turn(): ...`. Đầy hàng -> QueueFull."""
+    """Giữ chỗ GPU: `async with Turn(): ...` (câu trả lời người dùng đang chờ, P0) hoặc Turn(gpu.P2) cho việc nền.
+    Số chỗ: S4_CONCURRENCY (>1 chỉ có ích khi Ollama đặt OLLAMA_NUM_PARALLEL tương ứng). Đầy hàng -> QueueFull."""
+
+    def __init__(self, priority: int = gpu.P0):
+        self.priority = priority
 
     async def __aenter__(self):
-        global _waiting
-        if _waiting >= settings.get("FRIENDLY_QUEUE_MAX"):
+        if len(gpu.state()["waiting"]) >= settings.get("FRIENDLY_QUEUE_MAX"):
             raise QueueFull("Hệ thống đang bận, vui lòng thử lại sau ít phút.")
-        _waiting += 1
-        try:
-            await _gate.acquire()
-        finally:
-            _waiting -= 1
+        await gpu.scheduler.acquire_async(self.priority)
         return self
 
     async def __aexit__(self, *exc):
-        _gate.release()
+        gpu.scheduler.release()
 
 
 def chat_json(messages: list[dict], schema: dict, timeout: float = 60) -> dict:
     """Gọi một lần, ép đầu ra theo JSON schema (bộ nhớ, tóm tắt). Ép JSON làm model bỏ qua phần suy nghĩ nên nhanh.
-    Lỗi -> {} (việc phụ, không làm hỏng câu trả lời chính)."""
+    Lỗi -> {} (việc phụ, không làm hỏng câu trả lời chính). BÊN GỌI phải đang giữ chỗ GPU (Turn / gpu.slot)."""
+    if not aihealth.breaker.allow():
+        return {}
     try:
         res = ollama.Client(host=config.OLLAMA_HOST, timeout=timeout).chat(
             model=settings.get("FRIENDLY_MODEL"), messages=messages, format=schema, think=False, keep_alive=keep_alive(),
             options={"temperature": 0, "num_ctx": settings.get("FRIENDLY_NUM_CTX")})
+        aihealth.breaker.ok()
         v = json.loads(res["message"]["content"] or "{}")
         return v if isinstance(v, dict) else {}
+    except ollama.ResponseError:
+        aihealth.breaker.fail()
+        return {}
+    except (ValueError, TypeError):
+        return {}
     except Exception:
+        aihealth.breaker.fail()
         return {}
 
 
 def _stream(call: dict, model: str):
     """Chạy client.chat(stream=True) ở luồng riêng, trả async generator các mẩu: chữ (str), Thought, và Stats ở cuối.
-    Lỗi Ollama -> LLMError. Ngắt giữa chừng (người dùng rời trang / bấm Trả lời nhanh) -> dừng gọi model."""
+    Lỗi Ollama -> LLMError. Ngắt giữa chừng (người dùng rời trang / bấm Dừng) -> dừng gọi model."""
     async def gen():
         loop = asyncio.get_running_loop()
         q: asyncio.Queue = asyncio.Queue()
@@ -99,6 +100,9 @@ def _stream(call: dict, model: str):
         client = ollama.Client(host=config.OLLAMA_HOST, timeout=settings.get("FRIENDLY_TIMEOUT"))
 
         def work():
+            if not aihealth.breaker.allow():   # G3.3: Ollama lỗi liên tiếp -> báo ngay, không chờ hết hạn
+                loop.call_soon_threadsafe(q.put_nowait, ("error", "AI tạm thời không phản hồi (lỗi liên tiếp), vui lòng thử lại sau ít phút."))
+                return
             try:
                 for part in client.chat(model=model, stream=True, keep_alive=keep_alive(), **call):
                     if stop.is_set():
@@ -110,8 +114,10 @@ def _stream(call: dict, model: str):
                     text = part["message"]["content"]
                     if text:
                         loop.call_soon_threadsafe(q.put_nowait, ("delta", text))
+                aihealth.breaker.ok()
                 loop.call_soon_threadsafe(q.put_nowait, ("end", None))
             except Exception as exc:   # Ollama tắt, model chưa tải, quá thời gian...
+                aihealth.breaker.fail()
                 loop.call_soon_threadsafe(q.put_nowait, ("error", f"Không gọi được model {model}: {exc}"))
 
         threading.Thread(target=work, daemon=True).start()
@@ -123,7 +129,7 @@ def _stream(call: dict, model: str):
                 elif kind == "stats":
                     yield val
                 elif kind == "thinking":
-                    yield Thought(val)   # mỗi mẩu suy nghĩ một lần: để bên gọi kiểm "Trả lời nhanh" kịp thời + lưu cho dev
+                    yield Thought(val)   # model dùng chung có thể vẫn trả mẩu "thinking": bên gọi bỏ qua
                 elif kind == "end":
                     return
                 else:
@@ -134,12 +140,9 @@ def _stream(call: dict, model: str):
 
 
 def _opts() -> dict:
-    return {"temperature": settings.get("FRIENDLY_TEMPERATURE"), "num_ctx": settings.get("FRIENDLY_NUM_CTX")}
-
-
-def stream_chat(messages: list[dict]):
-    """Chế độ Suy nghĩ kỹ: model suy nghĩ (ẩn) rồi trả lời. Sinh chữ và THINKING."""
-    return _stream({"messages": messages, "think": True, "options": _opts()}, think_model())
+    # num_predict (G3.4, P23): test hợp đồng thấy model đôi khi lặp chữ trong "answer" không dừng -> có trần để không chạy tới hết hạn
+    return {"temperature": settings.get("FRIENDLY_TEMPERATURE"), "num_ctx": settings.get("FRIENDLY_NUM_CTX"),
+            "num_predict": settings.get("FRIENDLY_NUM_PREDICT")}
 
 
 def stream_json(messages: list[dict], schema: dict):
