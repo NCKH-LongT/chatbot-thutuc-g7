@@ -1,6 +1,6 @@
 # Danh sách tài liệu cho bài 1 (đã kiểm / chờ kiểm)
 
-Quy tắc (constraints.md C1.3): **chỉ cite bài có trạng thái "Đã kiểm"**, và chỉ lấy số của một bài sau khi đã đọc đúng bảng chứa số đó (ghi số bảng hoặc trang vào tệp tóm tắt).
+Quy tắc: **chỉ cite bài có trạng thái "Đã kiểm"**, và chỉ lấy số của một bài sau khi đã đọc đúng bảng chứa số đó (ghi số bảng hoặc trang vào tệp tóm tắt).
 
 - **PDF**: đọc trang đầu của PDF trong `docs/research paper/` của repo gốc (tên, tác giả, mã arXiv in trên trang).
 - **Web**: kiểm trên ACL Anthology, arXiv hoặc trang của nhà xuất bản ngày 25/10/2026.
@@ -119,7 +119,7 @@ Ngày lập: 25/10/2026.
 
 GPTCache, RouteLLM, vLLM, Nougat, Constitutional AI, DSPy, ToolLLM, RAGAS, Shakti (Aralimatti 2025), Pareja 2024, Patel 2025, Akarsu 2026, Baban 2025, HyPA-RAG, CanLegalRAGBench, LegalBench-RAG, CoVe, CRITIC, GASP, LawPal, LQ-RAG.
 
-Lý do: hệ thống không dùng; hoặc không liên quan trực tiếp tới "trả lời / hỏi lại / từ chối"; hoặc bản draft cũ trích sai. Chi tiết ở `draft_salvage.md` mục 3. Một số bài (Akarsu 2026, LegalBench-RAG) có thể dùng cho bài 2.
+Lý do: hệ thống không dùng; hoặc không liên quan trực tiếp tới "trả lời / hỏi lại / từ chối"; hoặc bản draft cũ trích sai. Một số bài (Akarsu 2026, LegalBench-RAG) có thể dùng cho bài 2.
 
 ## 8. Đối chiếu với `07_paper_draft/latex/refs.bib` (28/10/2026)
 

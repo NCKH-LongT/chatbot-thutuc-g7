@@ -27,7 +27,7 @@ Bài trước (paper_list.md mục 1) làm **nhiệm vụ khác**:
 - PhamDuy2023 và AnsGen2025 dùng các cặp hỏi đáp đã có câu trả lời, lấy từ trang câu hỏi phổ biến của Cổng DVC. Chúng đo truy hồi đoạn văn (Recall@k, MAP) hoặc chất lượng câu sinh ra (ROUGE). Bộ của họ **không có câu ngoài phạm vi** và không đo hành vi từ chối hay hỏi lại.
 - ViGPTQA2023 và Hien2025 hỏi đáp trên văn bản luật, đánh giá bằng bộ riêng (có phần do AI sinh) hoặc RAGAS và khảo sát người dùng.
 
-Vì vậy bài chỉ có **bảng định tính**: nhiệm vụ, nguồn câu hỏi, có hay không câu ngoài phạm vi, metric, chạy tại chỗ hay không. Không có cột "điểm" để xếp hạng (constraints.md C3.1).
+Vì vậy bài chỉ có **bảng định tính**: nhiệm vụ, nguồn câu hỏi, có hay không câu ngoài phạm vi, metric, chạy tại chỗ hay không. Không có cột "điểm" để xếp hạng.
 
 | Công trình | Nguồn câu hỏi | Câu ngoài phạm vi | Hỏi lại | Metric | Model |
 |---|---|---|---|---|---|

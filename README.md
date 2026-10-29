@@ -22,7 +22,7 @@ Trên hai bộ test khoá trước khi sửa code, một lớp luật minh bạc
 | `04_proposed_system/` | Tổng quan, kiến trúc, tích hợp model, luồng dữ liệu, sơ đồ (`diagrams/`) |
 | `05_methodology/` | Phương pháp, dữ liệu, baseline, chỉ số |
 | `06_experiment_results/` | Cài đặt thí nghiệm, kết quả, bảng (`tables/`), hình (`figures/`) |
-| `07_paper_draft/` | Bài báo: LaTeX (`latex/`, bản chuẩn), gói Overleaf, bản Markdown từng phần, dàn ý, ràng buộc khi viết (`constraints.md`) |
+| `07_paper_draft/` | Bài báo: LaTeX (`latex/`, bản chuẩn), gói Overleaf, bản Markdown từng phần, dàn ý |
 | `08_final_submission/` | Bản nộp: PDF từ Overleaf, bản Word |
 | `weekly_reports/` | Báo cáo tuần 01–08 (07/09 – 01/11/2026) |
 | `Code/` | Bản code công khai đi kèm bài: System 3, script đánh giá, kết quả từng câu (không có văn bản câu hỏi) |

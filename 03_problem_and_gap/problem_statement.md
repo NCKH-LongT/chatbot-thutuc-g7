@@ -9,7 +9,7 @@ Trợ lý trả lời câu hỏi về **thủ tục hành chính cấp xã/phư�
 
 Người dân không hỏi bằng ngôn ngữ của cổng dịch vụ công. Họ viết như viết thư: có lời chào, câu chuyện gia đình, chữ viết tắt, thường không dấu, và câu hỏi thật nằm đâu đó trong thư.
 
-**Phạm vi.** Trợ lý chỉ phục vụ thủ tục cấp xã/phường, gồm xã, phường và đặc khu. Đây **không** phải trợ lý cho mọi thủ tục hành chính toàn quốc (quyết định của nhóm, constraints.md D13).
+**Phạm vi.** Trợ lý chỉ phục vụ thủ tục cấp xã/phường, gồm xã, phường và đặc khu. Đây **không** phải trợ lý cho mọi thủ tục hành chính toàn quốc (quyết định của nhóm).
 
 ## 2. Vì sao quan trọng
 

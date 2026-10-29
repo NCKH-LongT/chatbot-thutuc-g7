@@ -4,7 +4,7 @@
 
 **Tác giả.** Trịnh Hoàng Nhân (tác giả liên hệ, trưởng nhóm), Nguyễn Viết Hưng, Phạm Lê Thiên Dấn, Trương Long (mentor). Khoa Trí tuệ nhân tạo, Trường Đại học FPT, TP. Hồ Chí Minh.
 
-**Nơi nộp.** Vietnam Journal of Computer Science (World Scientific), template `ws-vjcs.cls`. Ràng buộc ở `constraints.md`.
+**Nơi nộp.** Vietnam Journal of Computer Science (World Scientific), template `ws-vjcs.cls`.
 
 **Bản chuẩn.** `latex/` (main.tex, sections/*.tex, refs.bib). Gói tải lên Overleaf: `paper1_overleaf.zip`. Các tệp `.md` trong thư mục này sinh tự động từ LaTeX, chỉ để đọc trên GitHub.
 
@@ -24,7 +24,7 @@
 | Ethics and Data Availability, Competing Interests, Declaration of AI Use, Acknowledgments, ORCID | `ethics.tex`, `ai_declaration.tex`, `main.tex` | `back_matter.md` | Phần cuối theo yêu cầu của World Scientific |
 | References (29) | `refs.bib` | `references.md` | Đánh số theo thứ tự trích |
 
-Đối chiếu với khuôn của môn (constraints.md B6): mục 3–5 của bài gộp "Proposed System / Methodology" và "Experimental Setup"; "Conclusion" gồm cả hướng tương lai (trưởng nhóm chọn giữ tên "Conclusion", 28/10).
+Đối chiếu với khuôn của môn: mục 3–5 của bài gộp "Proposed System / Methodology" và "Experimental Setup"; "Conclusion" gồm cả hướng tương lai (trưởng nhóm chọn giữ tên "Conclusion", 28/10).
 
 ## Câu hỏi nghiên cứu và nơi trả lời
 
