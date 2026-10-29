@@ -1,122 +1,33 @@
-# 4. EMPIRICAL EVALUATION & TRANSPARENT RESULTS
+> Sinh tự động từ `latex/sections/results.tex` ngày 28/10/2026 để đọc trên GitHub. Bản chuẩn là LaTeX; muốn sửa thì sửa tệp `.tex`.
 
-All evaluation experiments were conducted on live runtime instances using the unified evaluation suite ([`eval/report.py`](file:///D:/dự%20án%20phase%202/merge_sys_3_4/eval/report.py)) under deterministic execution (`S3_USE_LLM=0`, rule planner), with LLM-assisted generation benchmarked on consumer edge hardware (**Intel Core i3-12100F 4C/8T @ 3.30–4.30 GHz, 32 GB DDR4 RAM, NVIDIA GeForce GTX 1660 SUPER 6 GB GDDR6**, local Ollama execution).
+## 6. Results
 
-To ensure scientific integrity, **we strictly report Wilson 95% confidence intervals** for all binomial proportions and explicitly decouple the un-tuned **blind evaluation suites** from the developmental sets.
+### 6.1. Team-written versus real questions
 
----
+On the same frozen base system, behavior accuracy is 77.2% (95% interval 73–81%) on the 518 team-written questions but 56.0% (50–62%) and 56.5% (51–62%) on the real development and first test sets; balanced accuracy falls from 0.852 to 0.636 and 0.647, and top-1 accuracy on *answer* questions from 274/381 (71.9%) to 7/55 (12.7%) and 20/59 (33.9%) (5/42 against 17/48 in the topical stratum, a gap we cannot explain). The largest change is in what is asked: 78–79% of real questions should be refused, against 11%, and the base system refuses about half of them (116/220 and 132/248, against 52/58 team-written). On the team-written set the rule layer makes no net change in behavior (+4/−4; 400/518 in both cases), so a team-written set alone would have shown neither the problem nor the fix.
 
-### 4.1. Strict Engine (System 3): Comprehensive Evaluation by Split Status
+### 6.2. Locked test sets
 
-Table 1 summarizes system performance across 1,352 standardized administrative evaluation cases partitioned into blind, developmental, and holdout-used splits.
+**First test set.** The rule layer (Table 1) raises balanced accuracy from 0.647 to 0.814 (difference +0.167, 95% interval 0.095–0.240) and end-to-end accuracy from 19/59 (95% interval 22–45%) to 35/59 (47–71%): base → A gains 96 and loses 10 questions on behavior (p ≈ 9·10⁻¹⁹) and 22 against 6 end-to-end (p = 0.004). Correct refusals rise from 132 to 219 of 248 while correct *answer* decisions stay level (45 to 44). The gain holds without the 11 near-duplicates (0.651 to 0.810), in the random stratum (102 questions, 11 *answer*; 0.512 to 0.859) and in each portal (Public Security 0.618 to 0.875, Binh Dinh 0.649 to 0.751). In *post hoc* ablations, removing the gate costs 70 correct refusals but adds 4 end-to-end answers, the lexicon costs 17 end-to-end answers and focus 7; the other rules change at most one question. Alone, the reranker (0.692) and the LLM reader (0.785; against A +28/−35 on behavior, p = 0.45, and 25 against 35 end-to-end, p = 0.06) do not do better, nor does either learned gate differ significantly in balanced accuracy from the hand-written gate alone on top of the base system (naive Bayes 0.765, embeddings 0.801, against 0.770). Added to the rules, the reranker gains one question; the reader's intents add refusals (+25/−10, p = 0.017) but lose answers, and its name alone scores highest (0.834) but was not selected and gains nothing significant end-to-end (+8/−4, p = 0.39). The RAG baseline scores 0.489, no better than always refusing, as it asks for clarification on 118 of the 248 questions it should refuse (0.727 if these were refusals, still below A). No configuration recognizes more than one of the six *clarify* questions, and second-pass labels give the same picture (base → A on 91 questions: +24/−1).
 
-**Table 1: Strict Engine performance metrics across evaluation splits with Wilson 95% confidence intervals.**
+**Second test set.** On new questions the rule layer again changes refusals most: correct refusals rise from 175 to 297 of 335 and balanced accuracy from 0.571 to 0.705 (+125/−5, p ≈ 4·10⁻³¹; difference +0.134, 0.033–0.228), the gate again supplying the refusals (62 fewer without it, 2 more end-to-end answers) and the lexicon the answers. The learned gates refuse more than the hand-written gate alone (308 and 313 against 287) but decide *answer* on only 5 of the 21 answerable questions against 10, for lower but not significantly lower balanced accuracy (0.579 and 0.586 against 0.666). The second round does not carry over on behavior: in the comparison declared before the run, A2 + B, which had gained 25 questions and lost none against A on development, ties A + B (+3/−3; end-to-end 10 against 8 of 21, p = 0.63; balanced difference +0.046, −0.048 to 0.143, a wide interval, since only 21 questions are answerable) and A (+4/−4) while beating the base (+129/−9). R is again last (0.413; 0.574 with clarifications as refusals; against A2 + B +19/−122, p ≈ 10⁻¹⁹).
 
-| Split Status | Total Cases ($n$) | Behavioral Accuracy | Top-1 Accuracy | Top-3 Accuracy | MRR | nDCG@5 | Field Precision | Multi-Proc Complete | Clarify Recall | Refusal Recall |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Blind (Official)** | **553** | **78%** (431/553) [74%–81%] | **73%** (295/406) [68%–77%] | **80%** (323/406) [75%–83%] | **0.759** | **0.752** | **51%** (199/388) [46%–56%] | **80%** (8/10) [49%–94%] | **47%** (40/86) [36%–57%] | **90%** (52/58) [79%–95%] |
-| **DEV (Controlled)** | 641 | 98% (626/641) [96%–99%] | 98% (558/567) [97%–99%] | 99% (562/567) [98%–100%] | 0.987 | 0.976 | 99% (368/373) [97%–99%] | 89% (25/28) [73%–96%] | 88% (23/26) [71%–96%] | 91% (42/46) [80%–97%] |
-| **Holdout-Used** | 158 | 85% (135/158) [79%–90%] | 87% (109/125) [80%–92%] | 90% (112/125) [83%–94%] | 0.876 | 0.885 | 76% (78/102) [67%–84%] | 76% (13/17) [53%–90%] | 30% (3/10) [11%–60%] | 80% (16/20) [58%–92%] |
+**Answer precision.** Answers remain unreliable: of the questions A answers, 45% get a correct procedure on the first test set and 20% on the second, most wrong answers going to questions that should be refused (29 of 42 and 34 of 37). On random traffic no configuration answers correctly more often than wrongly: the most precise are A + C with 7 of 15 answers in the random stratum of the first test set and A2 + B with 10 of 50 on the second.
 
-On the un-tuned blind evaluation suite (553 cases), **Sys_3_4 maintains a robust 78% behavioral accuracy and 73% Top-1 accuracy**, with an MRR of 0.759. The primary performance bottleneck is identified in **Clarify Recall (47%)**, indicating that ambiguous citizen inquiries frequently default to single-procedure assumptions rather than triggering disambiguation cards. Conversely, **Safe Refusal reaches 90%**, confirming high resilience against out-of-scope inquiries.
+**Table 1.** Locked test sets, one run each (313 and 363 questions; Sec. 3). Bal.: balanced accuracy; Ref.: correct refusals; E2E: end-to-end correct answers (of 59 and of 21); Prec.: share of given answers that are correct (%); Gate only: the out-of-scope gate of A alone on the base system; L: learned gates in its place; \**post hoc*; –: not run on that set (for A2 + B on test 1: A2 was developed on those questions).
 
----
-
-### 4.2. Granular Breakdown Across Evaluation Benchmark Sources
-
-Table 2 breaks down system performance across individual component benchmark datasets, including official blind suites, extended colloquial queries, multi-turn contexts, and municipal agency queries.
-
-**Table 2: Breakdown of retrieval, ranking, and behavioral metrics across benchmark sources.**
-
-| Benchmark Source | Nature & Scope | Cases ($n$) | Behavioral Acc. | Top-1 Retrieval | Top-3 Retrieval | MRR | nDCG@5 | Field Match | Clarify Recall | Safe Refusal |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `cases.jsonl` | Baseline & Core Suite | 590 | 98% (577/590) | 99% (503/510) | 99% (506/510) | 0.987 | 0.982 | 98% (362/369) | 83% (24/29) | 96% (45/47) |
-| `cases_ctx.jsonl` | Multi-Turn Context Memory | 118 | 96% (113/118) | 97% (109/112) | 98% (110/112) | 0.978 | 0.947 | 98% (43/44) | — | 67% (4/6) |
-| `cases_h2.jsonl` | Blind Holdout Phase 2 | 62 | 79% (49/62) | 81% (38/47) | 85% (40/47) | 0.812 | 0.825 | 64% (25/39) | 40% (2/5) | 67% (6/9) |
-| `cases_h3.jsonl` | Blind Holdout Phase 3 | 88 | 85% (75/88) | 76% (51/67) | 84% (56/67) | 0.782 | 0.771 | 77% (44/57) | 33% (2/6) | 100% (12/12) |
-| `cases_h4.json` | **Official Blind Holdout 4** | **106** | **85% (90/106)** | **78% (60/77)** | **87% (67/77)** | **0.824** | **0.805** | **45% (35/77)** | **62% (10/16)** | **100% (13/13)** |
-| `cases_h5.json` | Blind Holdout Phase 5 | 111 | 77% (86/111) | 72% (58/81) | 77% (62/81) | 0.743 | 0.742 | 49% (40/81) | 60% (12/20) | 90% (9/10) |
-| `cases_h6.json` | Blind Holdout Phase 6 | 126 | 74% (93/126) | 71% (62/87) | 80% (70/87) | 0.758 | 0.772 | 61% (53/87) | 39% (11/28) | 73% (8/11) |
-| `cases_pseudo_real.json` | Colloquial Simulation 1 | 42 | 81% (34/42) | 73% (22/30) | 77% (23/30) | 0.753 | 0.706 | 43% (13/30) | 50% (3/6) | 100% (6/6) |
-| `cases_pseudo_real2.json` | Colloquial Simulation 2 | 34 | 76% (26/34) | 79% (22/28) | 82% (23/28) | 0.804 | 0.795 | 18% (5/28) | 0% (0/3) | 67% (2/3) |
-| `cases_pseudo_real3.json` | Stress Colloquial 3 | 36 | 47% (17/36) | 43% (12/28) | 50% (14/28) | 0.464 | 0.474 | 32% (9/28) | 17% (1/6) | 50% (1/2) |
-| `cases_real_log_v1.json` | Handcrafted Citizen Logs | 29 | 76% (22/29) | 74% (17/23) | 78% (18/23) | 0.773 | 0.796 | 70% (16/23) | 0% (0/2) | 75% (3/4) |
-| `cases_team.json` | High-Stakes Municipal Suite | 10 | 100% (10/10) | 100% (8/8) | 100% (8/8) | 1.000 | 0.952 | — | 100% (1/1) | 100% (1/1) |
-
----
-
-### 4.3. Domain-Thematic Structural Evaluation (Template Benchmark)
-
-To evaluate retrieval stability across specific statutory categories without the confounding noise of colloquial misspellings, we evaluated the system on the curated **Template Benchmark Suite** (12 thematic categories, $n=430$ cases).
-
-**Table 3: Thematic evaluation across 12 statutory categories on the template benchmark ($n=430$).**
-
-| Category / Intent Type | Test Cases ($n$) | Behavioral Acc. | Top-1 Retrieval | Top-3 Retrieval | MRR | nDCG@5 | Field Completeness | Multi-Intent Success |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `address` (Jurisdiction/Location) | 30 | 97% (29/30) | 100% (30/30) | 100% (30/30) | 1.000 | 1.000 | 50% (15/30) | — |
-| `compare-khac-gi` (Distinction) | 20 | 100% (20/20) | 100% (20/20) | 100% (20/20) | 0.933 | 0.944 | — | 80% (16/20) |
-| `compare-so-sanh` (Comparison) | 20 | 100% (20/20) | 100% (20/20) | 100% (20/20) | 1.000 | 1.000 | — | 100% (20/20) |
-| `components` (Dossier Checklist) | 40 | 98% (39/40) | 95% (38/40) | 98% (39/40) | 0.963 | 0.966 | 98% (39/40) | — |
-| `explain` (Procedural Guidance) | 40 | 98% (39/40) | 95% (38/40) | 98% (39/40) | 0.963 | 0.966 | 45% (18/40) | — |
-| `fees` (Statutory Financial Costs) | 40 | 98% (39/40) | 100% (40/40) | 100% (40/40) | 1.000 | 1.000 | 90% (36/40) | — |
-| `legal` (Governing Legal Decrees) | 40 | 98% (39/40) | 100% (40/40) | 100% (40/40) | 1.000 | 1.000 | 88% (35/40) | — |
-| `list` (Domain-Wide Procedures) | 40 | 80% (32/40) | — | — | — | — | — | — |
-| `multi_field` (Compound Field QA) | 40 | 98% (39/40) | 98% (39/40) | 100% (40/40) | 0.988 | 0.991 | 92% (37/40) | — |
-| `online` (Digital Submission Portals) | 40 | 98% (39/40) | 98% (39/40) | 98% (39/40) | 0.975 | 0.975 | 82% (33/40) | — |
-| `steps` (Execution Sequence) | 40 | 98% (39/40) | 100% (40/40) | 100% (40/40) | 1.000 | 1.000 | 90% (36/40) | — |
-| `time` (Statutory Processing Deadlines)| 40 | 98% (39/40) | 100% (40/40) | 100% (40/40) | 1.000 | 1.000 | 88% (35/40) | — |
-
----
-
-### 4.4. Friendly Engine (System 4): Multi-Domain & Document QA Evaluation
-
-Table 4 reports empirical evaluation metrics for **System 4 (Friendly Mode)**, evaluating general dialogue, citizen document ingestion, tabular calculation, contextual behavior, and web search grounding.
-
-**Table 4: Empirical evaluation metrics for the Friendly Engine (System 4).**
-
-| Evaluation Scenario / Capability | Evaluated Scope & Query Nature | Empirical Result | Performance Assessment |
-| :--- | :--- | :---: | :---: |
-| **General Response Accuracy** | Unseen general inquiries and user prompts | **90.6% (29/32)** | High fidelity |
-| **Resistance to Induced Hallucination** | Adversarial prompts with fake entities/costs | **83.3% (25/30 unhallucinated)** | Robust safe refusal |
-| **Citizen Document QA (Word, Excel)** | Factual question answering over uploaded files | **100% (17/17 correct with citation)** | Perfect source grounding |
-| **Tabular Counting & Aggregation** | Relational calculation (*"how many male students"*) | **100% (15/15, vs. 0% baseline)** | Zero aggregation errors |
-| **Conversational Small Talk** | Natural greetings without spurious retrieval | **100% (25/25)** | Clean intent isolation |
-| **Contextual Interaction Protocol** | 22 multi-turn scenarios (disambiguation, memory) | **95.5% (21/22 scenarios passed)** | High state stability |
-| **DuckDuckGo Web Search Grounding** | Web retrieval over dynamic external topics | **87.5% (14/16 successful searches)** | Reliable real-time retrieval |
-| **Web Numerical Hallucination Rate** | Fee/deadline figures against web snippets | **0/16 hallucinated figures (0.0%)** | 100% grounded in sources |
-
----
-
-### 4.5. True Execution Latency & Hardware Profile
-
-Table 5 details the true runtime latency profiles measured on local edge hardware (**Intel Core i3-12100F 4C/8T @ 3.30–4.30 GHz, 32 GB DDR4-3200 RAM, NVIDIA GeForce GTX 1660 SUPER 6 GB GDDR6**), distinguishing deterministic rule execution (CPU) from autoregressive SLM token generation (GPU and CPU).
-
-**Table 5: Execution latency distribution across query archetypes and hardware modes.**
-
-| Operational Pipeline | Underlying Execution Engine | p50 Latency | p95 Latency | Operational Notes |
-| :--- | :--- | :---: | :---: | :--- |
-| **Simple Queries (Strict)** | Deterministic Rules (CPU: i3-12100F) | **78 ms** | **122 ms** | Instant kiosk lookup |
-| **Complex Queries (Strict)** | Deterministic Rules (CPU: i3-12100F) | **59 ms** | **122 ms** | Multi-field extraction |
-| **Clarification Turns (Strict)**| State Machine FSM (CPU: i3-12100F) | **72 ms** | **143 ms** | Disambiguation card emission |
-| **Out-of-Scope (Strict)** | Policy Guard (CPU: i3-12100F) | **52 ms** | **85 ms** | Safe refusal response |
-| **Overall CPU Retrieval Range**| SQLite FTS5 + Rule Engine | **57–85 ms** | **85–122 ms** | **Pure algorithm latency** |
-| **Generative Synthesis (SLM)** | Ollama `qwen3:4b` on GPU (GTX 1660S) | **3.19 s** | **6.27 s** | Fluid citizen explanation |
-| **Generative Synthesis (CPU)** | Ollama `qwen3:4b` on CPU (i3-12100F) | **7.6–12.0 s** | **19.0–39.0 s** | 4–8x slower (GPU required) |
-
-
----
-
-### 4.6. Safety, Privacy, and Injection Robustness (Tiers D1 & D2)
-
-**Table 6: Empirical safety, PII protection, and prompt injection defense metrics.**
-
-| Evaluation Tier | Metric / Test Suite Scope | Test Volume | Empirical Result | Target Compliance |
-| :--- | :--- | :---: | :---: | :---: |
-| **Tier D1 (Privacy)** | CCCD/National ID & Phone Redaction (Continuous digits) | 9 cases | **9/9 (100.0%)** | $\ge 99.0\%$ |
-| **Tier D1 (Privacy)** | Separated Digits Redaction (Spaces, dashes, dots: `090 123 4567`) | 3 cases | **3/3 (100.0%)** | $100.0\%$ |
-| **Tier D1 (Privacy)** | Non-PII Numerical False Positive Rate | 5 cases | **0/5 (0.0% FP)** | $0.0\%$ |
-| **Tier D2 (Adversarial)**| Prompt Injection Detection (Direct override attacks) | 11 cases | **11/11 (100.0%)** | $\ge 95.0\%$ |
-| **Tier D2 (Adversarial)**| Legitimate Administrative Query False Positive Rate | 6 cases | **0/6 (0.0% FP)** | $0.0\%$ |
-| **Tier D2 (Adversarial)**| End-to-End System Safety Gate Execution | 17 cases | **17/17 (100.0%)** | $100.0\%$ |
-
-Prior to the separator-aware regex patch in `server/policy/policy.py`, citizen PII formatted with whitespace or punctuation completely evaded filtering (**0/3 caught**). Following normalization, redaction recall reached **100% (3/3)** with zero false-positive scrubbing on administrative legal decision codes. Across 11 direct prompt injection attacks, the system maintained a **100% rejection rate** with zero false rejections on legitimate civil queries.
+| Configuration | T1 Bal. | T1 Ref. | T1 E2E | T1 Prec. | T2 Bal. | T2 Ref. | T2 E2E | T2 Prec. |
+|---|---|---|---|---|---|---|---|---|
+| Always refuse | 0.500 | 248 | 0 | – | 0.500 | 335 | 0 | – |
+| Base | 0.647 | 132 | 19 | 11.7 | 0.571 | 175 | 5 | 3.0 |
+| B: reranker alone | 0.692 | 175 | 21 | 17.9 | – | – | – | – |
+| C: LLM reader alone | 0.785 | 213 | 25 | 30.9 | – | – | – | – |
+| R: RAG + LLM decides | 0.489 | 104 | 28 | 43.8 | 0.413 | 197 | 4 | 10.5 |
+| L: naive Bayes gate\* | 0.765 | 224 | 14 | 21.9 | 0.579 | 308 | 2 | 6.9 |
+| L: embedding gate\* | 0.801 | 225 | 17 | 25.4 | 0.586 | 313 | 2 | 8.0 |
+| Gate only\* | 0.770 | 218 | 15 | 20.8 | 0.666 | 287 | 5 | 9.1 |
+| A: rule layer | 0.814 | 219 | 35 | 45.5 | 0.705 | 297 | 9 | 19.6 |
+| A + C (intent, name) | 0.817 | 237 | 32 | 58.2 | – | – | – | – |
+| A + C (name only) | 0.834 | 216 | 39 | 47.0 | – | – | – | – |
+| A + B (round-1 selection) | 0.823 | 219 | 36 | 46.2 | 0.683 | 298 | 8 | 17.4 |
+| A2 + B (round-2 selection) | – | – | – | – | 0.729 | 297 | 10 | 20.0 |

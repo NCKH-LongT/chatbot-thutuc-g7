@@ -1,79 +1,76 @@
-# Paper 10 Summary
+# Paper 10 Summary — CRAG2024
+
+Nhóm khuôn B2: **model / phương pháp AI**. Kiểm chứng 25/10/2026: các con số trong tệp đã đối chiếu với PDF trong docs/research paper. Phần nội dung bài gốc chép từ tóm tắt cũ (docs/research paper/paper_summaries/paper_18.md); hai mục cuối viết lại cho bài 1.
 
 ## Citation
 
-Tên bài: HyPA-RAG: A Hybrid Parameter Adaptive Retrieval-Augmented Generation System for AI Legal and Policy Applications
-Tác giả: Rishi Kalra, Zekun Wu, Ayesha Gulley, Airlie Hilliard, Xin Guan, Adriano Koshiyama, Philip Treleaven (Holistic AI; University College London)
-Năm: 2025 (preprint đầu tiên 9/2024)
-Nguồn: Proceedings of NAACL 2025 – Industry Track, ACL Anthology (2025.naacl-industry.79) — hội nghị có bình duyệt
-DOI/Link: https://aclanthology.org/2025.naacl-industry.79/ (bản mở: https://arxiv.org/abs/2409.09046)
+Tên bài: Corrective Retrieval Augmented Generation (CRAG)
+Tác giả: Shi-Qi Yan, Jia-Chen Gu, Yun Zhu, Zhen-Hua Ling (University of Science and Technology of China; UCLA; Google DeepMind)
+Năm: 2024
+Nguồn: arXiv preprint arXiv:2401.15884 (bản v3, 10/2024) — **chưa có công bố tại hội nghị/tạp chí có bình duyệt** tại thời điểm kiểm tra. Nhóm giữ lại vì đây là phương pháp nền tảng, được trích dẫn rộng rãi và triển khai phổ biến (ví dụ trong các framework RAG); mã nguồn công khai.
+DOI/Link: https://arxiv.org/abs/2401.15884 (DOI arXiv: 10.48550/arXiv.2401.15884)
 
 ## Problem
 
-**Tóm tắt tổng quan.** Bài báo đề xuất HyPA-RAG cho hỏi đáp chính sách và pháp luật về AI, lấy Luật địa phương số 144 của New York (LL144, về công cụ ra quyết định tuyển dụng tự động) làm tình huống thử nghiệm. Hệ thống gồm: bộ phân loại độ phức tạp truy vấn để chọn tham số truy xuất thích ứng; truy xuất lai dense + sparse (BM25) + đồ thị tri thức (knowledge graph); và khung đánh giá với các loại câu hỏi riêng. Kết quả: cấu hình thích ứng tốt nhất đạt Faithfulness 0,9044 (so với 0,8480 của cấu hình top-k cố định tốt nhất); trong ablation, Correctness cao nhất đạt 0,8402.
+**Tóm tắt tổng quan.** CRAG giải quyết tình huống bộ truy xuất trả về tài liệu sai hoặc không liên quan. Một bộ đánh giá truy xuất nhẹ (T5-large, 0,77B tham số) chấm mức liên quan của từng tài liệu và kích hoạt một trong ba hành động: *Correct* (tinh lọc tri thức trong tài liệu), *Incorrect* (bỏ tài liệu, chuyển sang tìm kiếm web), *Ambiguous* (kết hợp cả hai). Tài liệu được tinh lọc theo cách “tách rồi ghép lại” (decompose-then-recompose). CRAG “cắm vào là chạy” với RAG và Self-RAG; ví dụ với SelfRAG-LLaMA2-7b, CRAG vượt RAG chuẩn 7,0 điểm trên PopQA và 36,6 điểm trên PubHealth.
 
-**Bối cảnh và động lực.** LLM trong miền luật/chính sách gặp vấn đề tri thức lỗi thời, ảo giác và suy luận kém. RAG giúp nhưng gặp lỗi thiếu nội dung, tích hợp ngữ cảnh kém và nhiễu; các kỹ thuật nâng cao (viết lại truy vấn, kiểm tra bằng LLM) lại tăng chi phí token. Văn bản như LL144 kết hợp định nghĩa, thủ tục và chỉ số định lượng, đòi hỏi suy luận nhiều bước mà tương đồng ngữ nghĩa đơn thuần không nắm được.
+**Bối cảnh và động lực.** RAG phụ thuộc mạnh vào chất lượng truy xuất: nếu truy xuất sai, mô hình có thể bị dẫn sai và ảo giác. Phần lớn RAG đưa tài liệu vào một cách không phân biệt, và coi toàn bộ tài liệu là tri thức tham chiếu dù nhiều đoạn không cần thiết. Self-RAG quyết định *có cần truy xuất không*, còn CRAG tập trung vào câu hỏi *nếu truy xuất sai thì làm gì* — theo tác giả, đây là nỗ lực đầu tiên thiết kế chiến lược sửa sai cho RAG.
 
 ## Method
 
-1. **Chia đoạn:** so sánh theo câu, theo ngữ nghĩa, và theo mẫu (dấu “\n§” của LL144); chọn chia theo câu 512 token, chồng lấn 200 token cho các thí nghiệm sau.
-2. **Bộ phân loại độ phức tạp:** gán truy vấn vào 2 hoặc 3 lớp theo số đoạn ngữ cảnh cần (1, 2, ≥3). Dữ liệu huấn luyện do GPT-4o sinh, có tăng cường nhiễu (làm mơ hồ, thêm nhiễu chữ/dấu, lỗi chính tả, đảo cụm). Mô hình DistilBERT tinh chỉnh.
-3. **Ánh xạ tham số:** lớp đơn giản dùng top-k=5 và 3 lần viết lại truy vấn; lớp phức tạp dùng k=10 và 5 lần viết lại; lớp phức tạp nhất (3 lớp) dùng k=7 và 7 lần viết lại. HyPA điều chỉnh thêm số từ khóa tối đa (K) và độ sâu đồ thị (S).
-4. **Truy xuất lai:** BM25 + vector, hợp nhất bằng Reciprocal Rank Fusion; bộ truy xuất đồ thị tri thức trả về các bộ ba (triplet) do GPT-4o trích xuất; tùy chọn query rewriter và reranker (bge-reranker-large). PA-RAG là biến thể không dùng đồ thị tri thức.
+1. **Bộ đánh giá truy xuất:** T5-large tinh chỉnh; mẫu dương lấy từ tiêu đề Wikipedia vàng của PopQA, mẫu âm lấy ngẫu nhiên từ kết quả truy xuất. Mỗi cặp (câu hỏi, tài liệu) được chấm điểm liên quan; thường có 10 tài liệu mỗi câu hỏi.
+2. **Kích hoạt hành động theo hai ngưỡng:** ít nhất một tài liệu vượt ngưỡng trên → Correct; mọi tài liệu dưới ngưỡng dưới → Incorrect; còn lại → Ambiguous. Thử nghiệm sơ bộ chỉ với hai hành động cho thấy hệ thống quá phụ thuộc vào độ chính xác của bộ đánh giá, nên thêm Ambiguous.
+3. **Tinh lọc tri thức:** chia tài liệu thành các “dải tri thức” (vài câu), chấm điểm từng dải bằng bộ đánh giá, loại dải không liên quan, ghép các dải còn lại theo thứ tự.
+4. **Tìm kiếm web:** ChatGPT viết lại câu hỏi thành truy vấn từ khóa, gọi Google Search API, ưu tiên trang có thẩm quyền như Wikipedia, rồi tinh lọc như bước 3.
+5. **Sinh câu trả lời:** bất kỳ mô hình sinh nào nhận câu hỏi và tri thức đã xử lý.
 
 ```mermaid
-flowchart LR
-    Q["Truy vấn"] --> CL["DistilBERT: độ phức tạp 2/3 lớp"]
-    CL --> P["Ánh xạ tham số: top-k, số lần viết lại Q, K, S"]
-    P --> RW["Query rewriter"]
-    RW --> BM["BM25"]
-    RW --> DV["Dense vector"]
-    BM --> RRF["Reciprocal Rank Fusion"]
-    DV --> RRF["Reciprocal Rank Fusion"]
-    P --> KG["Truy xuất đồ thị tri thức: triplet"]
-    RRF --> RR["Reranker - tùy chọn"]
-    RR --> CTX["Ngữ cảnh k đoạn + triplet"]
-    KG --> CTX["Ngữ cảnh k đoạn + triplet"]
-    CTX["Ngữ cảnh k đoạn + triplet"] --> LLM["LLM sinh câu trả lời"]
+flowchart TD
+    Q["Câu hỏi"] --> R["Retriever: top-10 tài liệu"]
+    R --> E["Bộ đánh giá T5-large chấm từng tài liệu"]
+    E --> A{"Hành động"}
+    A -->|Correct| KR["Tinh lọc: tách dải → lọc → ghép"]
+    A -->|Incorrect| WS["ChatGPT viết lại truy vấn → web search → tinh lọc"]
+    A -->|Ambiguous| BOTH["Kết hợp tri thức trong + ngoài"]
+    KR --> G["Mô hình sinh"]
+    WS --> G["Mô hình sinh"]
+    BOTH --> G["Mô hình sinh"]
+    G["Mô hình sinh"] --> Y["Câu trả lời"]
 ```
 
 ## Dataset
 
-Văn bản LL144 dài 15 trang (luật gốc kèm quy tắc thực thi của DCWP). Bộ đánh giá “gold” sinh bằng GPT-3.5-Turbo và Giskard với các loại câu hỏi: đơn giản, phức tạp, tình huống, so sánh, tình huống phức tạp, mơ hồ, rule-conclusion; đã loại trùng và qua chuyên gia rà soát. Dữ liệu phân loại do GPT-4o sinh. Bài **không** nêu số lượng câu hỏi đánh giá trong thân bài.
+PopQA (câu trả lời ngắn về thực thể), Biography (sinh văn bản dài, đo bằng FactScore), PubHealth (đúng/sai), ARC-Challenge (trắc nghiệm). Dùng cùng kết quả truy xuất Contriever như Self-RAG để so sánh công bằng.
 
 ## Evaluation
 
-Các chỉ số RAGAS dựa trên LLM-as-a-judge: Faithfulness, Answer Relevancy, Context Precision, Context Recall; thêm Absolute Correctness (thang 1–5) và Correctness Score (tỷ lệ câu đạt ≥ 4). Độ tương quan Spearman giữa giám khảo LLM và người được dùng để chọn prompt chấm. Baseline: LLM không truy xuất (GPT-3.5-Turbo, GPT-4o-Mini) và RAG top-k cố định (k = 3, 5, 7, 10). Bộ phân loại so với nhãn ngẫu nhiên, zero-shot BART/DeBERTa, LR và SVM trên TF-IDF.
+Accuracy (PopQA, PubHealth, ARC) và FactScore (Biography). Baseline: LLaMA2, Alpaca, CoVE65B, LLaMA2-chat, ChatGPT (có/không truy xuất), Perplexity.ai, SAIL, RAG chuẩn, Self-RAG. Thêm phân tích chi phí tính toán (TFLOPs mỗi token, thời gian mỗi mẫu).
 
 ## Results
 
-- **Chia đoạn:** chia theo mẫu đạt Context Recall 0,9046, Faithfulness 0,8430, Correctness 0,7918; chia theo câu có Context Precision và F1 cao nhất.
-- **Bộ phân loại:** DistilBERT F1 = 0,90 (3 lớp) và 0,92 (2 lớp); SVM TF-IDF 0,86; zero-shot chỉ 0,29–0,38.
-- **LLM không truy xuất:** Correctness 0,1973 (GPT-3.5) và 0,4572 (GPT-4o-Mini).
-- **Top-k cố định:** Correctness 0,7546–0,7658; Faithfulness tốt nhất 0,8480 (k=10).
-- **Thích ứng:** PA (2 lớp) Faithfulness 0,9044; PA (3 lớp) Correctness 0,8141, Absolute Correctness 4,2528. HyPA kém ổn định hơn: HyPA (2 lớp) Correctness 0,7770, chỉ hơn k=7 cố định 0,0112.
-- **Ablation:** thêm reranker vào PA (k, Q) cho Faithfulness 0,9098 và Correctness 0,8178; HyPA (k, K, S, Q + reranker) đạt Correctness cao nhất 0,8402. Thêm đồ thị tri thức giữ nguyên Correctness nhưng giảm Absolute Correctness.
+- **Với SelfRAG-LLaMA2-7b:** RAG → CRAG: PopQA 52,8 → 59,8; Biography 59,2 → 74,1; PubHealth 39,0 → 75,6; ARC 53,2 → 68,6. Self-RAG → Self-CRAG: PopQA 54,9 → 61,8; Biography 81,2 → 86,2; PubHealth 72,4 → 74,8; ARC 67,3 → 67,2 (giảm nhẹ).
+- **Với LLaMA2-hf-7b:** RAG → CRAG: PopQA 50,5 → 54,9; ARC 43,4 → 53,7. Self-RAG → Self-CRAG: PopQA 29,0 → 49,0; Biography 32,2 → 69,1. Ở PubHealth, Self-RAG và Self-CRAG với mô hình này chỉ đạt 0,7 và 0,6.
+- **Ablation (PopQA):** bỏ bất kỳ hành động nào (Correct, Incorrect, Ambiguous) hoặc bất kỳ thao tác nào (tinh lọc, viết lại truy vấn, chọn lọc tri thức web) đều làm giảm accuracy; ví dụ Self-CRAG (LLaMA2-hf-7b) bỏ chọn lọc tri thức web giảm từ 49,0 xuống 24,9.
+- **Bộ đánh giá:** T5 đạt độ chính xác 84,3% trong đánh giá chất lượng truy xuất, so với ChatGPT 58,0–64,7%.
+- **Tách bạch nguồn lợi ích:** bổ sung web search cho RAG/Self-RAG chỉ cải thiện hạn chế (RAG 50,5 → 52,2) so với CRAG (54,9), cho thấy lợi ích chủ yếu đến từ cơ chế tự sửa.
+- **Chi phí:** thời gian sinh mỗi mẫu 0,363 giây (RAG) → 0,512 giây (CRAG); ước lượng chưa gồm bước truy xuất và tìm kiếm web.
 
 **Điểm mạnh.**
 
-- Ý tưởng điều chỉnh tham số truy xuất theo độ phức tạp câu hỏi giúp cân bằng chất lượng và chi phí token.
-- Có ablation chi tiết từng thành phần (k, Q, KG, reranker), có baseline không truy xuất và top-k cố định.
-- Đánh giá căn chỉnh giám khảo LLM với người bằng tương quan Spearman.
+- Bộ đánh giá nhỏ (0,77B) nhưng vượt ChatGPT trong đánh giá mức liên quan — rẻ và nhanh.
+- Thiết kế ba hành động mềm giúp giảm phụ thuộc vào độ chính xác tuyệt đối của bộ đánh giá.
+- Ablation đầy đủ cho từng hành động và thao tác; có phân tích độ bền khi chất lượng truy xuất giảm và phân tích chi phí.
 
 ## Limitations
 
-**(a) Bài báo thừa nhận (phụ lục A.13):** đánh giá tính đúng dựa vào một người chấm duy nhất; cách xây dựng đồ thị tri thức còn thô; ánh xạ tham số chưa được kiểm chứng định lượng chặt chẽ; bộ phân loại huấn luyện trên dữ liệu tổng hợp nên có thể mang thiên kiến của LLM; LL144 có trong dữ liệu huấn luyện của GPT nên ảnh hưởng baseline.
+**(a) Bài báo thừa nhận:** cần tinh chỉnh một bộ đánh giá truy xuất bên ngoài; muốn loại bỏ bộ đánh giá này và trang bị khả năng đánh giá truy xuất cho LLM trong tương lai.
 
-**(b) Quan sát:** chỉ một văn bản 15 trang tiếng Anh — phạm vi rất hẹp; dữ liệu đánh giá do LLM sinh và LLM chấm; cải thiện của đồ thị tri thức không nhất quán; không báo cáo độ trễ hay chi phí dù đây là động lực nêu ra. Khoảng chênh của nhiều cấu hình chỉ ở mức vài phần trăm và không có kiểm định thống kê.
+**(b) Quan sát:** cải thiện không đồng đều giữa các mô hình nền và tác vụ (ví dụ ARC giảm nhẹ; PubHealth gần 0 với LLaMA2-hf-7b ở cấu hình Self-); bộ đánh giá được huấn luyện bằng tín hiệu từ PopQA nên khả năng tổng quát sang miền khác chưa rõ; dùng web search và ChatGPT viết lại truy vấn — không phù hợp với hệ thống bắt buộc chạy cục bộ; chưa qua bình duyệt. Bài **không** xét miền pháp lý hay ngôn ngữ ngoài tiếng Anh.
 
 ## Relevance to our topic
 
-Friendly Engine của Sys_3_4 dùng truy xuất lai BGE-M3/Qdrant với RRF và reranker — đúng nhóm kỹ thuật mà HyPA-RAG phân tích. Bài cho thấy RAG cải thiện mạnh so với LLM không truy xuất (Correctness từ 0,20–0,46 lên khoảng 0,8), và chia đoạn theo cấu trúc văn bản luật giúp tăng recall — phù hợp cách nhóm cắt dữ liệu theo trường.
-
-**Kết luận.** HyPA-RAG cho thấy chọn tham số truy xuất thích ứng theo độ phức tạp truy vấn và kết hợp reranker cải thiện faithfulness và correctness so với RAG cố định trên một văn bản luật AI. Đóng góp của đồ thị tri thức còn chưa rõ. Hướng tiếp theo: cải thiện đồ thị tri thức, tăng số lớp phân loại, đưa phản hồi người dùng vào đánh giá và tinh chỉnh LLM bằng phương pháp tối ưu theo sở thích.
+CRAG dùng một bộ đánh giá truy hồi nhẹ để chọn hành động (dùng, bỏ, hay tìm thêm). Phương án B của bài 1 tương tự: điểm của cross-encoder quyết định từ chối hoặc thay thủ tục. Bài 1 cho thấy trên câu hỏi thật, ngưỡng điểm như vậy kém hơn lớp luật.
 
 ## Possible improvement
 
-- Thêm bộ định tuyến theo độ phức tạp cho Friendly Engine: câu tra cứu một thủ tục dùng ít ngữ cảnh; câu so sánh nhiều thủ tục tăng top-k — tương tự router Strict/Friendly hiện có.
-- Đo chi phí token và độ trễ cho từng cấu hình — phần bài báo bỏ ngỏ.
-- Dùng nhiều người chấm và kiểm định thống kê khi so sánh các cấu hình.
+- Vẽ đường rủi ro theo độ phủ cho điểm reranker để thấy giới hạn của mọi ngưỡng (gợi ý, chưa làm).

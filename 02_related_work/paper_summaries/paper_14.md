@@ -1,77 +1,75 @@
-# Paper 14 Summary
+# Paper 14 Summary — LegalCheck2026
+
+Nhóm khuôn B2: **lĩnh vực ứng dụng**. Kiểm chứng 25/10/2026: các con số trong tệp đã đối chiếu với PDF trong docs/research paper. Phần nội dung bài gốc chép từ tóm tắt cũ (docs/research paper/paper_summaries/paper_07.md); hai mục cuối viết lại cho bài 1.
 
 ## Citation
 
-Tên bài: Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection
-Tác giả: Akari Asai, Zeqiu Wu, Yizhong Wang, Avirup Sil, Hannaneh Hajishirzi (University of Washington; Allen Institute for AI; IBM Research AI)
-Năm: 2024 (preprint 10/2023)
-Nguồn: The Twelfth International Conference on Learning Representations (ICLR 2024), báo cáo oral — hội nghị hàng đầu, có bình duyệt (OpenReview)
-DOI/Link: https://proceedings.iclr.cc/paper_files/paper/2024/hash/25f7be9694d7b32d5cc670927b8091e1-Abstract-Conference.html (bản mở: https://arxiv.org/abs/2310.11511)
+Tên bài: LegalCheck: Retrieval- and Context-Augmented Generation for Drafting Municipal Legal Advice Letters
+Tác giả: Virgill van der Meer (Municipality of Amsterdam), Julien Rossi (University of Amsterdam)
+Năm: 2026
+Nguồn: Proceedings of the 21st International Conference on Artificial Intelligence and Law (ICAIL 2026), Singapore, 8–12/6/2026 — short paper, hội nghị có bình duyệt (ACM/IAAIL). Trang arXiv ghi “Accepted at ICAIL 2026 as Short Paper”.
+DOI/Link: https://arxiv.org/abs/2605.12012 (bản PDF trong repo vẫn để DOI ACM dạng “XXXXXXX”, chưa có DOI chính thức tại thời điểm kiểm tra)
 
 ## Problem
 
-**Tóm tắt tổng quan.** Self-RAG huấn luyện một LLM duy nhất vừa sinh văn bản vừa sinh *token phản tư* (reflection tokens) để tự quyết định khi nào cần truy xuất, đánh giá đoạn văn truy xuất có liên quan không, câu trả lời có được đoạn văn hỗ trợ không, và câu trả lời có hữu ích không. Với Llama2 7B/13B, Self-RAG vượt các LLM và mô hình RAG mã nguồn mở trên sáu tác vụ, và vượt ChatGPT ở PubHealth, PopQA, sinh tiểu sử và ở độ chính xác trích dẫn (citation precision) trên ASQA.
+**Tóm tắt tổng quan.** LegalCheck là hệ thống soạn thảo thư tư vấn pháp lý cho các đơn khiếu nại (bezwaar) của công dân tại phòng pháp chế thành phố Amsterdam. Hệ thống kết hợp RAG (truy xuất thư tư vấn cũ và văn bản quy phạm) với CAG (Context-Augmented Generation): đưa hồ sơ vụ việc, kết luận dự kiến do chuyên viên chọn và phản hồi của chuyên viên vào nhiều vòng sinh. Trong thí điểm 6 tháng, 81% nội dung bản nháp AI được giữ nguyên trong thư cuối cùng, và tổng thời gian xử lý giảm 50–70% với các vụ đơn giản.
 
-**Bối cảnh và động lực.** RAG thông thường luôn truy xuất một số đoạn cố định bất kể có cần hay không và bất kể đoạn đó có liên quan, có thể làm giảm chất lượng; đồng thời mô hình không được huấn luyện để bám theo bằng chứng nên câu trả lời không chắc nhất quán với đoạn truy xuất. Các phương pháp tự tinh chỉnh bằng prompt lặp (như CoVe) lại tốn thời gian suy luận. Bài báo đặt mục tiêu: truy xuất theo nhu cầu và tự phản tư, nhưng không làm mất tính linh hoạt của LLM.
+**Bối cảnh và động lực.** Phòng pháp chế đô thị thiếu nhân sự, trong khi khối lượng khiếu nại hành chính và môi trường tăng 35% trong năm năm. Thư tư vấn là văn bản rủi ro cao: phải dẫn đúng luật và tiền lệ, khớp sự kiện, giữ giọng văn chuyên nghiệp nhưng thân thiện với công dân. Theo tác giả, các nghiên cứu NLP pháp lý trước chủ yếu phân loại hoặc dự đoán phán quyết; các nghiên cứu sinh văn bản pháp lý chỉ dừng ở thử nghiệm phòng lab. Chưa có công trình triển khai LLM soạn văn bản pháp lý chính thức trong quy trình thật của khu vực công.
 
 ## Method
 
-1. **Bốn loại token phản tư:** *Retrieve* {yes, no, continue}; *IsRel* {relevant, irrelevant}; *IsSup* {fully, partially, no support}; *IsUse* {1–5}.
-2. **Huấn luyện mô hình phê bình (critic):** dùng GPT-4 sinh nhãn token phản tư (4K–20K mẫu mỗi loại), chưng cất vào critic Llama2-7B; critic đạt hơn 90% đồng thuận với GPT-4 ở phần lớn loại token.
-3. **Huấn luyện mô hình sinh:** chạy critic và retriever (Contriever-MS MARCO) ngoại tuyến để chèn token phản tư và đoạn truy xuất vào 150K cặp chỉ dẫn–đầu ra; huấn luyện bằng mục tiêu dự đoán token kế tiếp với từ vựng mở rộng (che phần đoạn truy xuất khi tính loss). Không cần critic khi suy luận — chi phí thấp hơn RLHF/PPO.
-4. **Suy luận có kiểm soát:** truy xuất khi xác suất Retrieve=yes vượt ngưỡng; xử lý song song nhiều đoạn; beam search theo đoạn với điểm = xác suất sinh + tổng có trọng số của IsRel, IsSup, IsUse (mặc định 1,0; 1,0; 0,5). Có thể đặt ràng buộc cứng, ví dụ loại đoạn có IsSup = no support.
+1. **Đầu vào của chuyên viên:** đơn khiếu nại, biên bản của cán bộ thực thi, kết luận dự kiến (chấp nhận/bác bỏ), và tùy chọn “steering advice”. Có bước tùy chọn che danh tính (tên, địa chỉ, số định danh, biển số) và khôi phục danh tính sau khi duyệt.
+2. **RAG:** một lệnh gọi LLM tóm tắt đơn khiếu nại; nhúng bằng text-embedding-ada-002 (1.536 chiều); tìm 50–200 đoạn “Objection” tương tự bằng cosine, rồi lấy đoạn “Explanation” tương ứng của cùng vụ. Truy xuất trong bộ nhớ, không cần CSDL vector, độ trễ mức mili-giây ở quy mô 14.000 vụ.
+3. **Sinh bản nháp:** GPT-4o (Azure OpenAI), nhiệt độ 0,1, theo mẫu prompt quy định cấu trúc và văn phong chính thức của thành phố; mất khoảng 20–25 giây.
+4. **CAG tinh chỉnh:** chuyên viên ghi chú lỗi hoặc thiếu sót; hệ thống tạo prompt mới gồm bản nháp v1, hồ sơ, ghi chú và (tùy chọn) truy xuất lại → sinh bản v2. Thường chỉ cần 0–1 vòng.
+5. **Kiểm soát:** chuyên viên luôn là người duyệt cuối; lưu nhật ký nguồn và prompt để kiểm toán.
 
 ```mermaid
 flowchart TD
-    X["Đầu vào + phần đã sinh"] --> D{"Token Retrieve?"}
-    D -->|No| G0["Sinh đoạn tiếp"]
-    G0["Sinh đoạn tiếp"] --> U0["Token IsUse"]
-    D -->|Yes| R["Retriever lấy K đoạn"]
-    R --> P1["Đoạn 1: IsRel → sinh → IsSup → IsUse"]
-    R --> P2["Đoạn 2: IsRel → sinh → IsSup → IsUse"]
-    R --> Pk["Đoạn K: ..."]
-    P1 --> S["Beam search theo điểm có trọng số của token phản tư"]
-    P2 --> S["Beam search theo điểm có trọng số của token phản tư"]
-    Pk --> S["Beam search theo điểm có trọng số của token phản tư"]
-    S --> Y["Đoạn tốt nhất → lặp lại cho câu tiếp theo"]
+    J["Chuyên viên: đơn khiếu nại, biên bản, kết luận, steering advice"] --> DI["Che danh tính - tùy chọn"]
+    DI --> S["LLM tóm tắt đơn"]
+    S["LLM tóm tắt đơn"] --> R["Embedding ada-002 → top 50–200 đoạn Objection → lấy Explanation tương ứng"]
+    KB[("23.500 thư tư vấn cũ + quy định")] --> R
+    R --> G["GPT-4o, nhiệt độ 0,1 → bản nháp v1"]
+    G --> RV{"Chuyên viên rà soát"}
+    RV -->|ghi chú| C["CAG: prompt tinh chỉnh → bản nháp v2"]
+    C["CAG: prompt tinh chỉnh → bản nháp v2"] --> RV
+    RV -->|duyệt| F["Thư chính thức + nhật ký nguồn"]
+    F["Thư chính thức + nhật ký nguồn"] --> RI["Khôi phục danh tính"]
 ```
 
 ## Dataset
 
-Huấn luyện: 150K cặp chỉ dẫn–đầu ra từ Open-Instruct và các bộ cần tri thức. Đánh giá (zero-shot): PubHealth (kiểm chứng sự thật về y tế công cộng), ARC-Challenge, PopQA (tập đuôi dài gồm 1.399 truy vấn thực thể hiếm), TriviaQA-unfiltered (11.313 câu), sinh tiểu sử (FactScore), ALCE-ASQA (QA dài có trích dẫn).
+Thư tư vấn pháp lý 2022–2025 của thành phố Amsterdam thuộc các lĩnh vực phạt rác thải và cẩu kéo xe đạp, ô tô, tàu thuyền: khoảng 23.500 thư, mỗi lĩnh vực từ khoảng 150 đến 14.000 vụ. Thư được cắt theo mục (Case Details, Objection, Hearing, Explanation, Conclusion) và ẩn danh theo GDPR. Dữ liệu là bí mật, không công bố.
 
 ## Evaluation
 
-Accuracy (PubHealth, ARC, PopQA, TriviaQA — tính đúng nếu đáp án vàng có trong câu trả lời); FactScore; với ASQA: str-em, ROUGE, MAUVE (độ trôi chảy), citation precision và recall. Baseline: Llama2, Alpaca, Llama2-chat, ChatGPT (có/không truy xuất), Perplexity.ai, CoVE65B, Toolformer, SAIL, Llama2-FT.
+Đánh giá hỗn hợp trong 6 tháng triển khai: tỷ lệ giữ lại (phần nội dung AI được giữ nguyên sau khi chỉnh sửa), Recall/Precision/F1 về nội dung so với thư do người viết, tỷ lệ tiết kiệm thời gian (khoảng 20 chuyên viên tự ghi thời gian, so với ước tính lịch sử 3/6/16 giờ mỗi vụ), mức giữ lại các sự kiện chính trên khoảng 250 vụ, cùng khảo sát và phỏng vấn người dùng. Bài **không** có baseline hệ thống khác (ví dụ RAG một vòng không có CAG, hoặc LLM không truy xuất).
 
 ## Results
 
-- **Self-RAG 13B:** PopQA 55,8; TriviaQA 69,3; PubHealth 74,5; ARC 73,1; FactScore 80,2; ASQA em 31,7, citation precision 70,3, recall 71,3.
-- **Self-RAG 7B:** PopQA 54,9; PubHealth 72,4; FactScore 81,2; ASQA citation precision 66,9.
-- **So sánh:** ChatGPT không truy xuất đạt PopQA 29,3, PubHealth 70,1, FactScore 71,8; Ret-ChatGPT đạt citation precision 65,1 (Self-RAG 13B: 70,3). ChatGPT vẫn tốt hơn ở ARC (75,3), TriviaQA (74,3) và ASQA em (35,3–40,7). Llama2 13B kèm truy xuất chỉ đạt citation precision 2,3.
-- **Llama2-FT7B** (cùng dữ liệu nhưng không có token phản tư) kém Self-RAG, cho thấy lợi ích không chỉ đến từ dữ liệu.
-- **Ablation (bản 7B, 50K mẫu):** bỏ retriever hoặc bỏ critic khi huấn luyện làm giảm mạnh kết quả; luôn dùng top-1 như RAG truyền thống làm giảm mạnh trên PopQA và ASQA; bỏ IsSup làm giảm ASQA.
-- Tăng trọng số IsSup làm tăng citation precision nhưng giảm MAUVE; ngưỡng truy xuất cho phép đánh đổi tần suất truy xuất với độ chính xác. Đánh giá người trên 50 mẫu cho thấy IsRel/IsSup khớp phần lớn với nhận định của người.
+- Bảng 1: Recall 93%, Precision 91%, F1 92%; tỷ lệ giữ lại 81% (chuyên viên chỉ thêm khoảng 8% nội dung mới); tiết kiệm 92% thời gian ở khâu soạn thảo; giảm 50–70% tổng thời gian xử lý (vụ 6 giờ còn 2–3 giờ).
+- Hơn 99% bản nháp chứa đủ các sự kiện chính (ngày vi phạm, loại vi phạm, địa điểm). Có 68% thư AI dài hơn thư người viết, trung bình nhiều hơn 41% nội dung.
+- Ngoại suy: với 5.800 khiếu nại/năm, tiết kiệm 12.000–17.000 giờ (≈10–14 nhân sự, ≈1,2–1,7 triệu euro). Tác giả nêu rõ đây là ước tính giả định triển khai đầy đủ.
+- Định tính: chuyên viên ban đầu hoài nghi, sau tăng mức tin tưởng; mọi lần dùng chức năng tinh chỉnh đều cho bản nháp “thỏa đáng”.
+- Không có ablation RAG so với RAG + CAG; tác giả đưa việc so sánh mù này vào hướng nghiên cứu tiếp theo.
 
 **Điểm mạnh.**
 
-- Gộp truy xuất theo nhu cầu, tự đánh giá mức hỗ trợ và trích dẫn vào một mô hình duy nhất; điều chỉnh hành vi lúc suy luận mà không cần huấn luyện lại.
-- Đánh giá rộng (6 tác vụ, nhiều chỉ số), ablation cả huấn luyện lẫn suy luận, có kiểm tra người.
-- Công bố mã và mô hình.
+- Nghiên cứu triển khai thật trong cơ quan hành chính, có quy trình con người duyệt cuối, nhật ký kiểm toán, che/khôi phục danh tính và phân loại rủi ro theo EU AI Act.
+- Thiết kế truy xuất theo cặp mục Objection → Explanation khai thác cấu trúc văn bản hành chính một cách khéo léo.
+- Đánh giá đa chiều: chất lượng văn bản, thời gian, độ chấp nhận của người dùng.
 
 ## Limitations
 
-**(a) Bài báo thừa nhận:** vẫn có thể sinh nội dung không được trích dẫn hỗ trợ đầy đủ; dữ liệu huấn luyện giới hạn ở 150K và chưa khai thác hết hiệu ứng tăng dữ liệu.
+**(a) Bài báo thừa nhận:** chỉ một cơ quan, bốn lĩnh vực thực thi, nhóm người dùng nhỏ; phụ thuộc LLM bên thứ ba; chưa nghiên cứu tác động dài hạn tới việc làm và cảm nhận công bằng của công dân; dữ liệu bí mật nên khó tái lập; rủi ro tái tạo thiên kiến từ quyết định cũ (đã kiểm tra mẫu, chưa phát hiện vấn đề).
 
-**(b) Quan sát:** cần huấn luyện lại LLM với từ vựng mở rộng — không áp dụng được trực tiếp cho mô hình có sẵn; nhãn critic chưng cất từ GPT-4; đánh giá người chỉ 50 mẫu; một số baseline lấy số từ bài khác; bản 7B đôi khi tốt hơn 13B về độ chính xác sự kiện do câu trả lời ngắn hơn. Bài **không** báo cáo độ trễ suy luận dù có beam search trên nhiều đoạn, và chỉ đánh giá tiếng Anh.
+**(b) Quan sát:** cách tính Recall/Precision/F1 so với thư người viết không được mô tả chi tiết; thời gian “trước” là ước tính lịch sử chứ không phải đo song song; không có kiểm định thống kê hay nhóm đối chứng. Bài **không** đo tỷ lệ ảo giác hay lỗi dẫn chiếu sai một cách hệ thống, và dữ liệu được gửi lên đám mây (Azure) dù đã giảm thiểu.
 
 ## Relevance to our topic
 
-Ý tưởng “chỉ truy xuất khi cần” và “đánh giá từng câu có được bằng chứng hỗ trợ” tương ứng với router của Sys_3_4 (câu tra cứu một mục vào Strict Engine; câu hội thoại/so sánh vào Friendly Engine) và với verifier kiểm từng ý. Khác biệt: Self-RAG học các quyết định này trong trọng số LLM, còn Sys_3_4 thực hiện bằng luật và code tất định nên dễ kiểm toán, rẻ hơn, không cần huấn luyện lại.
-
-**Kết luận.** Self-RAG cho thấy huấn luyện LLM sinh token phản tư giúp truy xuất theo nhu cầu, tự phê bình và trích dẫn chính xác hơn, vượt nhiều mô hình lớn hơn và RAG truyền thống. Đổi lại cần huấn luyện lại mô hình và vẫn chưa đảm bảo mọi khẳng định được bằng chứng hỗ trợ.
+AI hỗ trợ cơ quan địa phương (cấp thành phố) trả lời công dân, có người duyệt cuối. Cùng bối cảnh 'cơ quan cấp cơ sở' với bài 1 (cấp xã/phường), nhưng LegalCheck soạn thư cho cán bộ duyệt, còn bài 1 quyết định trả lời / hỏi lại / từ chối cho câu hỏi gửi trực tiếp.
 
 ## Possible improvement
 
-- Áp dụng khái niệm IsSup ở mức câu: verifier gán nhãn fully/partially/no support cho từng câu trong câu trả lời của Friendly Engine và hiển thị cho người dùng.
-- Ghi lại tỷ lệ truy vấn được định tuyến vào từng engine — tương tự phân tích “tần suất truy xuất so với độ chính xác” của bài.
+- Bài 1 có thể đề xuất chuyển câu bị từ chối cho cán bộ, như vòng duyệt của LegalCheck (chưa triển khai).

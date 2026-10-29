@@ -1,33 +1,47 @@
-# Paper Outline
+# Paper Outline: bài 1 (System 3)
 
-- **Title:** Sys_3_4: An Enterprise Context-Aware and Dual-Engine Legal AI Assistant for Vietnamese Public Administration
-- **Abstract**
-- **1. Introduction**
-  - 1.1 Public Administration Transformation in Vietnam
-  - 1.2 Core Technical Challenges in Civic Legal QA
-  - 1.3 Key Contributions
-- **2. Related Works: Quantitative Analysis and Technical Methods**
-  - 2.1 E-Government Chatbots and Public Administration AI
-  - 2.2 Legal RAG, Hallucination Verification, and Statutory QA
-  - 2.3 Hybrid Retrieval, Reranking, and Table Understanding
-  - 2.4 Local SLMs and Edge Computing
-  - 2.5 Vietnamese Legal & Public Administration AI
-  - 2.6 Benchmarking Frameworks and Automated Judges
-- **3. Sys_3_4 System Architecture & Engineering Design**
-  - 3.1 Strict Engine (System 3) Operational Principles
-  - 3.2 Multi-Turn Context State Engine: Clarify State Isolation
-  - 3.3 Friendly Engine (System 4): Citizen Document QA & Live Web Search
-  - 3.4 Future Enterprise Scaling Architecture
-- **4. Empirical Evaluation & Transparent Results**
-  - 4.1 Strict Engine (System 3): Comprehensive Evaluation by Split Status
-  - 4.2 Granular Breakdown Across Evaluation Benchmark Sources
-  - 4.3 Domain-Thematic Structural Evaluation (Template Benchmark)
-  - 4.4 Friendly Engine (System 4): Multi-Domain & Document QA Evaluation
-  - 4.5 True Execution Latency & Hardware Profile
-  - 4.6 Safety, Privacy, and Injection Robustness (Tiers D1 & D2)
-- **5. Discussion & Scientific Audit of Evaluation Methodology**
-  - 5.1 The Empirical Fallacy of LLM-as-a-Judge for Statutory RAG
-  - 5.2 Analysis of the Generalization Gap in Public Administration
-  - 5.3 Known System & Data Limitations
-- **6. Conclusion & Future Work**
-- **References**
+**Tên bài.** *Answer, Clarify or Refuse? Rules, a Reranker and a Small LLM on Real Citizen Questions about Commune-Level Administrative Procedures in Vietnam*
+
+**Tác giả.** Trịnh Hoàng Nhân (tác giả liên hệ, trưởng nhóm), Nguyễn Viết Hưng, Phạm Lê Thiên Dấn, Trương Long (mentor). Khoa Trí tuệ nhân tạo, Trường Đại học FPT, TP. Hồ Chí Minh.
+
+**Nơi nộp.** Vietnam Journal of Computer Science (World Scientific), template `ws-vjcs.cls`. Ràng buộc ở `constraints.md`.
+
+**Bản chuẩn.** `latex/` (main.tex, sections/*.tex, refs.bib). Gói tải lên Overleaf: `paper1_overleaf.zip`. Các tệp `.md` trong thư mục này sinh tự động từ LaTeX, chỉ để đọc trên GitHub.
+
+## Cấu trúc
+
+| Mục | Tệp LaTeX | Tệp đọc | Nội dung chính |
+|---|---|---|---|
+| Abstract, Keywords | `sections/abstract.tex` | `abstract.md` | 150 từ, 6 từ khoá |
+| 1. Introduction | `introduction.tex` | `introduction.md` | Bài toán ba lựa chọn; phạm vi chỉ thủ tục cấp xã/phường; bốn phát hiện |
+| 2. Related Work | `related.tex` | `related_work.md` | Hỏi đáp dịch vụ công tiếng Việt; từ chối và câu ngoài phạm vi; ai quyết định (model hay luật) |
+| 3. Task and Data | `data.tex` | `methodology.md` | Định nghĩa nhãn; dữ liệu thủ tục; câu hỏi thật, ba bộ dev/test; nhãn và κ = 0,685; bộ tự viết |
+| 4. System and Variants | `method.tex` | `methodology.md` | Bản gốc; lớp luật A; vòng 2 A2; reranker B; LLM reader C; cổng học L (*post hoc*); baseline RAG R |
+| 5. Evaluation Protocol | `protocol.tex` | `methodology.md` | Thứ tự làm; quy tắc chọn và so sánh chính; chỉ số; máy chạy |
+| 6. Results | `results.tex` | `results.md` | 6.1 bộ tự viết so với câu thật; 6.2 hai bộ test khoá trước, độ chính xác câu trả lời; Bảng 1 |
+| 7. Discussion | `discussion.tex` | `discussion.md` | Luật làm gì; phần còn lại; vì sao vòng 2 không lặp lại; giới hạn (i)–(vii) |
+| 8. Conclusion | `conclusion.tex` | `conclusion.md` | Kết luận và hướng tương lai |
+| Ethics and Data Availability, Competing Interests, Declaration of AI Use, Acknowledgments, ORCID | `ethics.tex`, `ai_declaration.tex`, `main.tex` | `back_matter.md` | Phần cuối theo yêu cầu của World Scientific |
+| References (29) | `refs.bib` | `references.md` | Đánh số theo thứ tự trích |
+
+Đối chiếu với khuôn của môn (constraints.md B6): mục 3–5 của bài gộp "Proposed System / Methodology" và "Experimental Setup"; "Conclusion" gồm cả hướng tương lai (trưởng nhóm chọn giữ tên "Conclusion", 28/10).
+
+## Câu hỏi nghiên cứu và nơi trả lời
+
+| RQ | Nội dung | Trả lời ở |
+|---|---|---|
+| RQ1 | Bộ câu tự viết lệch bao nhiêu so với câu thật? | §6.1 |
+| RQ2 | Lớp luật minh bạch cải thiện bao nhiêu trên câu thật đã khoá, có làm tụt bộ cũ không? | §6.2, Bảng 1 |
+| RQ3 | Reranker, model 4B, RAG để model tự quyết, và cổng học (*post hoc*) so với lớp luật thế nào? | §6.2, Bảng 1, §7 |
+
+## Bảng và hình
+
+- **Bảng 1** (trong bài): hai bộ test, mọi cấu hình chạy, cân bằng / từ chối đúng / đúng trọn / độ chính xác câu trả lời.
+- Ngoài bài (thư mục khuôn): `04_proposed_system/diagrams/architecture.png`, `workflow.png`; `06_experiment_results/figures/balanced_accuracy.png`; `06_experiment_results/tables/`.
+
+## Tình trạng (28/10/2026)
+
+- Phản biện nội bộ 7 vòng: agent checklist kết luận "nộp được"; agent phản biện khuyến nghị nhận sau khi sửa câu chữ (đã sửa).
+- Bản Overleaf ngày 28/10 (`08_final_submission/final_paper.pdf`): 12 trang, nội dung hết trang 9, tài liệu tham khảo trang 10–12. Đã gồm các sửa trình bày theo template, ORCID và URL.
+- Đã điền: ORCID của ba sinh viên; URL trong mục Data Availability (nhánh `paper1-vjcs-draft`).
+- Còn chờ: ORCID của mentor (nếu có).

@@ -1,61 +1,45 @@
-# 3. SYS_3_4 SYSTEM ARCHITECTURE & ENGINEERING DESIGN
+> Sinh tự động từ `latex/sections/data.tex, method.tex, protocol.tex` ngày 28/10/2026 để đọc trên GitHub. Bản chuẩn là LaTeX; muốn sửa thì sửa tệp `.tex`.
 
-```mermaid
-flowchart TD
-    UserQuery["Citizen Multi-Turn Query\n(Colloquial Phrasing, Shorthand, Demographic Modifiers)"] --> PolicyGuard["Inbound Policy & Safety Guard\n• Regex PII Masking (CCCD, SĐT)\n• Prompt Injection Detection"]
-    
-    PolicyGuard -- "Attack Detected" --> Apologize["Safe Refusal Output\n('Hành vi không được hỗ trợ')"]
-    PolicyGuard -- "Clean Query" --> ModeSwitch{"Operational Engine Router\n(Strict Procedure Mode vs. Friendly/Specialist Mode)"}
-    
-    ModeSwitch -- "Strict Mode (System 3)" --> S3Context["Multi-Turn Context State Engine\n• Clarify State Isolation\n• Field Inheritance on Return Branches\n• Demographic Extractor"]
-    
-    S3Context --> S3Retriever["Grounded Statutory RAG\n• SQLite FTS5 (BM25 Keyword Search)\n• 1,350 Commune Procedures + Synonyms\n• Direct SQL Fee & Count Filtering"]
-    
-    S3Retriever --> S3Answer["Strict Answer Composer & Verifier\n• Verbatim Field Extraction (0% Fee Hallucination)\n• Optional Ollama Qwen3:4b Explanation Synthesis\n• Constitutional Verification against Database"]
-    
-    ModeSwitch -- "Friendly Mode (System 4)" --> S4Ingest["Multi-Modal Domain Manager\n• Citizen Upload Ingestion (Excel, Word, PDF)\n• TableTool Structured Cell Aggregator"]
-    
-    S4Ingest --> S4Search["Specialist Hybrid Search Engine\n• Qdrant Dense Vector Store (bge-m3, 1024-d)\n• SQLite FTS5 Sparse Search\n• Reciprocal Rank Fusion (RRF) + bge-reranker-v2-m3\n• DuckDuckGo Live Web Search Grounding"]
-    
-    S4Search --> S4LLM["Friendly Conversational Agent\n• Ollama qwen3:4b-instruct (Fast & Deep-thinking)\n• Streaming Token Generation via SSE\n• Grounded Fact Validator (No Uncited Figures)"]
-    
-    S3Answer --> FinalOutput["Statutory Validated Output (Sys_3_4)\n• Official Procedure Code & Portal URLs\n• Complete Dossier Checklist & Fee Schedules"]
-    S4LLM --> FinalOutput
-```
+## 3. Task and Data
 
-**Figure 1:** Live production architecture of the **Sys_3_4** dual-engine assistant.
+**Task.** The system outputs *answer* with a procedure identifier, *clarify* with candidates, or *refuse* with a short reason. A question is labeled *answer* when exactly one commune-level procedure (or a pair of equivalent ones) is clearly what the citizen needs; *clarify* when several different procedures fit, or when the procedure exists only in province-specific versions and no province is given; *refuse* when the procedure is not in the data or not handled at commune level, or the question concerns a submitted file, a complaint or petition, law and penalties, police internal matters, or no procedure.
 
-| Architectural Subsystem | Implemented Technology Stack | Core Functional Role in Production |
-| :--- | :--- | :--- |
-| **Inbound Policy & Safety Gate** | Pre-retrieval Regex Normalizer + Guardrail Filter | Normalizes accented text, strips adversarial prompt injections, and redacts continuous/separated PII (CCCD, SĐT) prior to processing. |
-| **Multi-Turn Context Tracker** | In-Memory Deterministic Dialogue FSM | Tracks active procedure IDs, records visited history, extracts demographic constraints, and enforces **Clarify State Isolation**. |
-| **Strict Engine Core (System 3)**| SQLite FTS5 BM25 + Canonical Gazetteers (`system3.db`) | Indexes 1,350 commune/ward administrative procedures; executes direct SQL fee/count queries; produces 100% grounded checklist responses. |
-| **Friendly Engine Core (System 4)**| Qdrant + `bge-m3` + `bge-reranker-v2-m3` + `tabletool` | Ingests arbitrary citizen documents; computes exact row/column aggregations on spreadsheets; executes reciprocal rank fusion (RRF). |
-| **Local SLM Generation** | Ollama Runtime (`qwen3:4b-instruct`) on GPU | Generates empathetic, conversational explanations; performs streamable response synthesis with strict verification against retrieved context. |
-| **Live Web Augmentation** | DuckDuckGo Search API (`ddgs`) | Retrieves up to 5 real-time external statutory updates with full source citations `[n]` when internal databases lack coverage. |
+**Procedure data.** The National Public Service Portal[1] was collected once on 13 October 2026 through its public, unauthenticated JSON endpoints (it has no official API) at two requests per second: 1,517 procedures, of which the 542 commune-level procedures that are not province-specific form the scope.
 
----
+**Real questions.** We pooled two public Hugging Face datasets of citizen questions sent to the Binh Dinh provincial portal[19] and the Ministry of Public Security portal[20], masked personal data (patterns for phone and identity numbers, e-mail addresses and introduced names, plus a manual list), and removed duplicates, lines under four words, greetings and 266 questions used earlier to design clarification rules, leaving 1,490 questions. Samples were drawn with fixed seeds from a *random* stratum and a *topical* stratum (keywords of commune-level fields, fixed before any system output was seen, to obtain more answerable questions):
 
-### 3.1. Strict Engine (System 3) Operational Principles
-The **Strict Engine** operates on a zero-hallucination mandate. Procedures are anchored by their official national procedure identifiers (`proc_id`), ministerial decision numbers, and standardized field chunks (dossier components, fees, statutory processing times, submission addresses, and legal decrees).
-- **Rule-Based Routing:** Queries addressing specific procedural requirements are routed directly to database extractors, bypassing stochastic generation entirely.
-- **Safe Refusal:** When a citizen asks about a procedure outside commune-level jurisdiction or requests fees for a procedure where official data is unpublished, the engine explicitly outputs a safe refusal rather than interpolating missing figures.
+- **development set**: 282 questions (55 answer, 7 clarify, 220 refuse);
 
-### 3.2. Multi-Turn Context State Engine: Clarify State Isolation
-A critical failure mode in conversational RAG is *phantom procedure contamination*, where candidate procedures presented during a disambiguation turn inadvertently pollute dialogue memory.
+- **first test set**: 313 other questions (59 answer, 6 clarify, 248 refuse; 88% refuse in its random stratum), locked before any code change; 11 are near-duplicates of development questions (Sec. 6.2);
 
-**Sys_3_4 implements Clarify State Isolation:**
-1. When ambiguous queries (e.g., *"Tôi muốn làm thủ tục hộ tịch"*) trigger clarification cards, direct routing tasks are cleared.
-2. The dialogue state machine **does not record any procedure into `active_proc_id` or the visited procedures list**.
-3. If the citizen follows up with a generic question (*"Mất bao lâu?"*), the state tracker recognizes that ambiguity remains unresolved and re-prompts the user to select one of the suggested procedures, completely preventing the model from hallucinating deadlines for an arbitrarily chosen candidate.
+- **second test set**: the rest of the pool minus 25 near-duplicates, random stratum only, in an order locked before the second improvement round. The project lead (an author) labeled the first 400 during that round, knowing the kinds of rules being added but neither the rules nor any output on these questions; Gemini 4 Argon proposed each label, checked item by item, under the development guideline with two clarifications added (petitions are refused rather than set aside; two near-equivalent procedures make one *answer*). After removing 37 items that the guideline sets aside as truncated or unintelligible, 363 remain (21 answer, 7 clarify, 335 refuse: 92%).
 
-### 3.3. Friendly Engine (System 4): Citizen Document QA & Live Web Search
-To serve broader civic inquiries beyond the fixed national gazetteer, **System 4** introduces a flexible multi-domain workspace:
-- **Tabular Data Calculation (`tabletool`):** Citizen-uploaded Excel files are indexed as relational tables. Queries requiring counting (*"lớp có bao nhiêu bạn nam"*) or filtering are executed programmatically rather than relying on LLM text extrapolation, lifting tabular computation accuracy from 0% to 100%.
-- **Live Web Grounding:** Users can trigger web search grounding powered by DuckDuckGo. The assistant ingests search snippets, attaches citation indices `[n]`, and refuses to invent numerical values if web results yield no definitive answer.
+**Labels and agreement.** Development and first-test labels were produced, following a written guideline, with the same AI assistant that wrote the rules (for development, two separate passes by that assistant, with disagreements resolved as it proposed and approved by the project lead). For 100 random first-test questions, Gemini 4 Argon proposed new labels and the project lead checked each without seeing the first pass, though having seen the aggregate class proportions. On the 91 questions that both passes kept (the second set aside nine petitions as non-questions, which led to the first clarification above), they agree on 79, with Cohen's kappa[21] κ = 0.685 (95% bootstrap interval 0.55–0.82); 8 of the 12 disagreements are *answer* versus *clarify* between related procedures. The first-pass labels were not changed.
 
-### 3.4. Future Enterprise Scaling Architecture
-While the current production system operates reliably on local SQLite, Qdrant, and Ollama, we propose an enterprise scaling roadmap for provincial-scale deployments:
-- **Semantic Vector Caching (GPTCache) [30]:** Placing a Redis vector cache before the router to serve high-frequency administrative queries in sub-15ms at cosine similarities $\ge 0.92$.
-- **Dynamic Fast/Slow Routing (RouteLLM) [31]:** Routing straightforward procedural queries to lightweight SLMs while reserving larger models for multi-hop statutory analysis.
-- **Continuous Memory Serving (vLLM) [32]:** Utilizing PagedAttention to eliminate KV-cache fragmentation during high-concurrency civic service hours.
+**Team-written set.** For comparison we use the blind part of the team's regression set: 518 questions written over several rounds, 102 imitating citizens, with 384 *answer* (381 whose procedure is still in the data), 76 *clarify* and 58 *refuse*.
+
+## 4. System and Variants
+
+**Base system.** The assistant as it stood before this study uses no language model to decide. Each segment of a question is normalized (abbreviations, synonyms, requested fields such as fees) and procedures are ranked by inverse document frequency over whole Vietnamese syllables, with a penalty for mismatched diacritics and thresholds on score and coverage (the share of the question's weight found in the name). A policy module checks the plan against the data and outputs the behavior; answers are composed by code from the record, and an optional LLM rewriting step is off in all experiments.
+
+**Rule layer (A).** Rules written from the base system's errors on development, each behind a switch (all off reproduces the base output on every test question): *letter stripping* removes greetings, the addressed agency and thanks, which otherwise match procedure names; a *citizen lexicon* of about twenty patterns maps citizen wording to current official names, including terms changed by recent laws; a *weak-name filter* stops a few shared words from naming a long procedure; an *out-of-scope gate\* refuses questions about one's own file, complaints and petitions, law and penalties, police internal matters and topics absent from the data, unless they ask an explicit procedural question; *focus* keeps only the segments of a long letter that ask something; and an *organization default* prefers the individual version of a procedure.
+
+**Second round (A2).** Written after the first test set had been run, on the remaining errors of A on the development and first test sets, behind one more switch: a lexicon that tolerates inserted words; an explicit request recognized by the lexicon overrides a procedure inferred from a life event; more out-of-scope patterns (plain-word status questions, private disputes); and, as the labeling guideline prescribes, the version common to all provinces is answered instead of asking for the province.
+
+**Reranker (B).** The rule ranker's top eight and the ten in-scope procedures closest under BGE-M3 embeddings[22] are scored by the cross-encoder bge-reranker-v2-m3[23]; the system refuses below a score threshold and replaces the rule's choice when another candidate wins by a margin (thresholds chosen by grid search on development).
+
+**LLM reader (C).** A local 4-billion-parameter model (Qwen3-4B-Instruct-2507, Q4_K_M, Ollama, temperature 0, JSON schema)[24,25] classifies the intent (procedure, file status, complaint, law, internal, other) and, for procedure questions, names the procedure in words, which the rule ranker maps to a procedure; other intents become refusals, and the *name-only\* variant ignores the intent.
+
+**Learned gates (L).** Trained on the development labels (282 questions for the first test set, 595 for the second) to predict *refuse*, a classifier replaces the hand-written gate on top of the base system: multinomial naive Bayes over word and character n-grams, or class-balanced logistic regression over BGE-M3 embeddings of the question, with threshold and regularization chosen by five-fold cross-validation. Both were added after the test sets had been run, as trained counterparts of the gate.
+
+**RAG baseline (R).** In a common design in which the model decides, BGE-M3 retrieves the five closest in-scope procedures and the same 4B model returns *answer* with a number, *clarify* or *refuse*, without any rule; its prompt lists the refusal categories of the labeling guideline. After a first, short prompt over-used clarification, two variants were declared together; the best on development (ordered decision rules: 0.445, against 0.343 and 0.432) was run once on each test set.
+
+## 5. Evaluation Protocol
+
+**Order of work.** Each test set was labeled and locked by SHA-256 and a commit; rules and thresholds were developed on the development set only; the code was frozen in a commit; each configuration was run once and its results read once. Reusing a test set for selection inflates its estimates[26], so no test set was used to choose anything. The first test set then joined the development set (595 questions) for the second round. Ablations and the learned gates were run afterwards, on the frozen code, as *post hoc* analyses.
+
+**Selection and comparisons.** Written before each test run: the development configuration with the highest balanced accuracy, subject to end-to-end accuracy not lower than that of the rule layer alone, ties going to end-to-end accuracy. This selected A + B in the first round and A2 + B in the second (0.916, tied with A2 but with one more end-to-end answer); such development numbers are optimistic, as the rules were written on the same questions. The first plan compared the base with each variant and with the selection; the second declared three primary comparisons, A + B → A2 + B, base → A2 + B and A2 + B → R. All other comparisons are descriptive.
+
+**Metrics.** *Behavior accuracy* is the share of correct three-way decisions; since always refusing scores 79.2% and 92.3% on the two test sets, the main metric is *balanced accuracy*, the mean recall of *answer* and *refuse*[27] (*clarify* is too rare to weigh equally). Because it counts an answer with the wrong procedure as correct, we also report *end-to-end* accuracy, the *answer* questions answered with a correct procedure first, and answer *precision*, the share of all answers given that are correct; *top-1* accuracy is the share of *answer* questions whose first output procedure is correct (a refusal outputs none). Proportions carry Wilson 95% intervals[28]; paired comparisons use the exact two-sided McNemar test[29] and, for balanced accuracy, a paired bootstrap 95% interval of the difference (4,000 resamples).
+
+**Setup.** Procedure data of 13 October 2026; one laptop with an NVIDIA GeForce RTX 4050 (6 GB), paced by a temperature guard.

@@ -1,35 +1,45 @@
-# Search Keywords & Strategy
+# Search Keywords & Strategy (khuôn bước 2)
 
-Tập hợp các từ khóa và chiến lược tra cứu tài liệu học thuật cho đề tài:
+Nguồn đã dùng: ACL Anthology, arXiv, ACM Digital Library, trang tác giả, Hugging Face (model card và dataset card), và Google qua công cụ tìm kiếm web. Mọi bài được cite đều đã mở bản gốc để kiểm (`paper_list.md`).
 
-## 1. Domain-Specific Keywords (E-Government & Public Administration)
-- `E-Government chatbots public administration`
-- `legal artificial intelligence administrative procedures`
-- `Vietnamese legal NLP public service portal`
-- `civic technology automated statutory advice`
-- `grassroots public administration digital transformation`
+## 1. Lĩnh vực: dịch vụ công và pháp lý tiếng Việt
+- Vietnamese public administrative services question answering
+- dịch vụ công hỏi đáp; thủ tục hành chính chatbot
+- Vietnamese legal question answering LLM RAG
+- e-government chatbot citizen questions LLM
 
-## 2. Retrieval & Hybrid Search Keywords
-- `hybrid sparse-dense retrieval RAG legal domain`
-- `BM25 FTS5 syllable-level weighting Vietnamese text`
-- `reciprocal rank fusion RRF dense embeddings Qdrant`
-- `domain-specific reranking BGE-reranker cross-encoder`
-- `accent mismatch penalty diacritics retrieval`
+## 2. Từ chối, ngoài phạm vi, hỏi lại
+- out-of-scope intent detection dataset
+- unanswerable questions reading comprehension
+- selective question answering abstention domain shift
+- abstention large language models survey
+- asking clarifying questions conversational search
+- selective classification risk coverage (thêm 27/10)
+- LLM text annotation crowd workers (thêm 27/10)
 
-## 3. Hallucination Prevention & Factuality
-- `chain of verification fact-checking legal chatbots`
-- `post-hoc grounding citation verification RAG`
-- `zero hallucination numerical fee extraction`
-- `self-RAG corrective retrieval augmented generation`
+## 3. Phương pháp và model
+- retrieval-augmented generation; corrective RAG; self-reflective RAG
+- multilingual embedding BGE-M3; cross-encoder reranker
+- Qwen3 technical report; small language model local deployment
+- programmable guardrails LLM
 
-## 4. Multi-Turn Conversation & State Management
-- `multi-turn conversational context memory dialogue state tracking`
-- `anaphora resolution discourse markers legal assistant`
-- `disambiguation turn isolation conversational degradation`
-- `clarify state isolation dialogue policy`
+## 4. Chính phủ điện tử và quản trị AI
+- AI governance pipeline e-government
+- evaluating LLMs governmental use
+- privacy-preserving chatbot public administration federated
 
-## 5. Local SLM & Production Serving
-- `small language models edge AI on-premise government`
-- `vLLM paged attention continuous batching latency`
-- `semantic cache GPTCache redis legal queries`
-- `dynamic query routing RouteLLM threshold optimization`
+## 5. Thống kê và giao thức
+- McNemar test comparing classifiers
+- balanced accuracy
+- Wilson score interval
+- Cohen's kappa; Landis Koch agreement
+- reusable holdout adaptive data analysis
+
+## Tiêu chí giữ hoặc bỏ
+
+Giữ một bài khi:
+- bài liên quan trực tiếp tới việc trả lời, hỏi lại hay từ chối; hoặc
+- bài mô tả một model hay phương pháp mà hệ thống thực sự dùng; hoặc
+- bài thuộc lĩnh vực dịch vụ công hay pháp lý.
+
+Bỏ một bài khi hệ thống không dùng nó, hoặc khi bản nháp cũ trích sai. Danh sách các bài đã bỏ ở `paper_list.md` mục 7.

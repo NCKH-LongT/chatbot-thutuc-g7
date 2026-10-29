@@ -1,86 +1,76 @@
-# Paper 11 Summary
+# Paper 11 Summary — SelfRAG2024
+
+Nhóm khuôn B2: **model / phương pháp AI**. Kiểm chứng 25/10/2026: các con số trong tệp đã đối chiếu với PDF trong docs/research paper. Phần nội dung bài gốc chép từ tóm tắt cũ (docs/research paper/paper_summaries/paper_14.md); hai mục cuối viết lại cho bài 1.
 
 ## Citation
 
-Tên bài: Legal Query RAG (LQ-RAG)
-Tác giả: Rahman S. M. Wahidur, Sumin Kim, Haeung Choi, David S. Bhatti, Heung-No Lee (Gwangju Institute of Science and Technology – GIST, Hàn Quốc)
-Năm: 2025
-Nguồn: IEEE Access, Vol. 13 (2025), trang 36978–36994 — tạp chí có bình duyệt (nhận bài 14/1/2025, chấp nhận 31/1/2025, xuất bản 14/2/2025), open access CC BY 4.0
-DOI/Link: https://doi.org/10.1109/ACCESS.2025.3542125
+Tên bài: Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection
+Tác giả: Akari Asai, Zeqiu Wu, Yizhong Wang, Avirup Sil, Hannaneh Hajishirzi (University of Washington; Allen Institute for AI; IBM Research AI)
+Năm: 2024 (preprint 10/2023)
+Nguồn: The Twelfth International Conference on Learning Representations (ICLR 2024), báo cáo oral — hội nghị hàng đầu, có bình duyệt (OpenReview)
+DOI/Link: https://proceedings.iclr.cc/paper_files/paper/2024/hash/25f7be9694d7b32d5cc670927b8091e1-Abstract-Conference.html (bản mở: https://arxiv.org/abs/2310.11511)
 
 ## Problem
 
-**Tóm tắt tổng quan.** Bài báo đề xuất LQ-RAG, một khung RAG cho truy vấn pháp lý có vòng phản hồi đệ quy. Khung gồm bốn thành phần: mô hình embedding tinh chỉnh cho luật (GIST-Law-Embed), mô hình sinh tinh chỉnh lai (HFM – hợp nhất hai bản LoRA của LLaMA-3-8B), tác tử đánh giá dùng GPT-4, và tác tử viết lại prompt. Kết quả: embedding tinh chỉnh tăng Hit Rate 13% và MRR 15%; HFM cải thiện 24% so với LLM tổng quát; LQ-RAG đạt điểm liên quan trung bình 80%, cao hơn RAG thường 23% và RAG với mô hình tinh chỉnh (FTM) 14%.
+**Tóm tắt tổng quan.** Self-RAG huấn luyện một LLM duy nhất vừa sinh văn bản vừa sinh *token phản tư* (reflection tokens) để tự quyết định khi nào cần truy xuất, đánh giá đoạn văn truy xuất có liên quan không, câu trả lời có được đoạn văn hỗ trợ không, và câu trả lời có hữu ích không. Với Llama2 7B/13B, Self-RAG vượt các LLM và mô hình RAG mã nguồn mở trên sáu tác vụ, và vượt ChatGPT ở PubHealth, PopQA, sinh tiểu sử và ở độ chính xác trích dẫn (citation precision) trên ASQA.
 
-**Bối cảnh và động lực.** Các LLM pháp lý trước đó (HanFei, LawGPT, LexiLaw, Lawyer LLaMA) dù được tiền huấn luyện hoặc tinh chỉnh trên dữ liệu luật vẫn ảo giác và bị giới hạn bởi mốc tri thức. RAG thông thường có thể đưa vào đoạn không liên quan vì bộ truy xuất không xét độ liên quan theo miền, còn mô hình sinh thiếu tri thức miền và khả năng tuân thủ chỉ dẫn. Bài báo dẫn số liệu LLM tổng quát ảo giác 58%–82% với câu hỏi pháp lý.
+**Bối cảnh và động lực.** RAG thông thường luôn truy xuất một số đoạn cố định bất kể có cần hay không và bất kể đoạn đó có liên quan, có thể làm giảm chất lượng; đồng thời mô hình không được huấn luyện để bám theo bằng chứng nên câu trả lời không chắc nhất quán với đoạn truy xuất. Các phương pháp tự tinh chỉnh bằng prompt lặp (như CoVe) lại tốn thời gian suy luận. Bài báo đặt mục tiêu: truy xuất theo nhu cầu và tự phản tư, nhưng không làm mất tính linh hoạt của LLM.
 
 ## Method
 
-1. **Tầng tinh chỉnh (FT Layer):**
-   - *Embedding:* dùng GPT-3.5-turbo sinh cặp câu hỏi–đoạn văn từ một phần kho sách luật (lấy từ Library Genesis); tinh chỉnh GIST Large Embedding v0 với Multiple Negatives Ranking Loss.
-   - *Mô hình sinh:* LLaMA-3-8B tinh chỉnh LoRA riêng trên bộ hỏi-đáp pháp lý và bộ chỉ dẫn tổng quát (lượng tử 4-bit, PEFT, SFTTrainer), sau đó hợp nhất tuyến tính thành HFM.
-2. **Tầng RAG:** chỉ mục FAISS trên phần kho còn lại; tác tử ReAct chọn công cụ truy vấn; truy xuất lai BM25 + DPR rồi rerank.
-3. **Vòng phản hồi:** tác tử đánh giá GPT-4 chấm answer relevance, context relevance và groundedness theo chuỗi suy luận (CoT). Nếu chưa đạt ngưỡng, tác tử prompt chỉnh sửa truy vấn (đơn giản hóa nhưng giữ ý) và lặp lại truy xuất–sinh, tối đa N lần.
+1. **Bốn loại token phản tư:** *Retrieve* {yes, no, continue}; *IsRel* {relevant, irrelevant}; *IsSup* {fully, partially, no support}; *IsUse* {1–5}.
+2. **Huấn luyện mô hình phê bình (critic):** dùng GPT-4 sinh nhãn token phản tư (4K–20K mẫu mỗi loại), chưng cất vào critic Llama2-7B; critic đạt hơn 90% đồng thuận với GPT-4 ở phần lớn loại token.
+3. **Huấn luyện mô hình sinh:** chạy critic và retriever (Contriever-MS MARCO) ngoại tuyến để chèn token phản tư và đoạn truy xuất vào 150K cặp chỉ dẫn–đầu ra; huấn luyện bằng mục tiêu dự đoán token kế tiếp với từ vựng mở rộng (che phần đoạn truy xuất khi tính loss). Không cần critic khi suy luận — chi phí thấp hơn RLHF/PPO.
+4. **Suy luận có kiểm soát:** truy xuất khi xác suất Retrieve=yes vượt ngưỡng; xử lý song song nhiều đoạn; beam search theo đoạn với điểm = xác suất sinh + tổng có trọng số của IsRel, IsSup, IsUse (mặc định 1,0; 1,0; 0,5). Có thể đặt ràng buộc cứng, ví dụ loại đoạn có IsSup = no support.
 
 ```mermaid
 flowchart TD
-    subgraph FT["Tầng tinh chỉnh"]
-      C1["Kho văn bản luật"] --> SG["GPT-3.5 sinh cặp Q-đoạn"]
-      SG["GPT-3.5 sinh cặp Q-đoạn"] --> E["Tinh chỉnh GIST embedding - MNRL"]
-      QA["QA pháp lý"] --> L1["LoRA LLaMA-3-8B"]
-      IN["Chỉ dẫn tổng quát"] --> L2["LoRA LLaMA-3-8B"]
-      L1 --> HFM["Hợp nhất tuyến tính → HFM"]
-      L2 --> HFM["Hợp nhất tuyến tính → HFM"]
-    end
-    Q["Truy vấn"] --> R["ReAct + truy xuất lai BM25/DPR + FAISS"]
-    R["ReAct + truy xuất lai BM25/DPR + FAISS"] --> RR["Rerank"]
-    E --> R
-    RR --> G["HFM sinh câu trả lời"]
-    HFM --> G
-    G --> EV{"Tác tử GPT-4: answer/context relevance, groundedness"}
-    EV -->|đạt| OUT["Trả lời"]
-    EV -->|chưa đạt| PE["Tác tử viết lại truy vấn"]
-    PE["Tác tử viết lại truy vấn"] --> R
+    X["Đầu vào + phần đã sinh"] --> D{"Token Retrieve?"}
+    D -->|No| G0["Sinh đoạn tiếp"]
+    G0["Sinh đoạn tiếp"] --> U0["Token IsUse"]
+    D -->|Yes| R["Retriever lấy K đoạn"]
+    R --> P1["Đoạn 1: IsRel → sinh → IsSup → IsUse"]
+    R --> P2["Đoạn 2: IsRel → sinh → IsSup → IsUse"]
+    R --> Pk["Đoạn K: ..."]
+    P1 --> S["Beam search theo điểm có trọng số của token phản tư"]
+    P2 --> S["Beam search theo điểm có trọng số của token phản tư"]
+    Pk --> S["Beam search theo điểm có trọng số của token phản tư"]
+    S --> Y["Đoạn tốt nhất → lặp lại cho câu tiếp theo"]
 ```
 
 ## Dataset
 
-- Truy xuất: 7 bộ dữ liệu tự xây từ kho sách luật.
-- Mô hình sinh: các bộ đánh giá tổng quát (BBH, Hellaswag, TruthfulQA, SQuAD v2…) và pháp lý (MMLU International Law, MMLU Professional Law, Abercrombie, Legal Reasoning Causality, Law Stack Exchange, Canada Tax Court Outcomes, Contract QA).
-- Hệ thống: bộ câu hỏi mở về điều khoản hiến pháp, sửa đổi, tình huống giả định, và 5 bộ câu hỏi “closed-domain”. Bài **không** nêu rõ tổng số câu hỏi đánh giá hệ thống trong thân bài.
+Huấn luyện: 150K cặp chỉ dẫn–đầu ra từ Open-Instruct và các bộ cần tri thức. Đánh giá (zero-shot): PubHealth (kiểm chứng sự thật về y tế công cộng), ARC-Challenge, PopQA (tập đuôi dài gồm 1.399 truy vấn thực thể hiếm), TriviaQA-unfiltered (11.313 câu), sinh tiểu sử (FactScore), ALCE-ASQA (QA dài có trích dẫn).
 
 ## Evaluation
 
-Hit Rate, MRR (truy xuất); EM, Accuracy, BLEU, ROUGE (mô hình sinh); RAG triad gồm Answer Relevance, Context Relevance, Groundedness do LLM chấm; thời gian phản hồi. Baseline embedding: ColBERT, LLM-Embedder, BGE, GISTEmbed; baseline mô hình sinh: các bản LLaMA và Flan-T5; baseline hệ thống: Naive RAG và RAG + FTM.
+Accuracy (PubHealth, ARC, PopQA, TriviaQA — tính đúng nếu đáp án vàng có trong câu trả lời); FactScore; với ASQA: str-em, ROUGE, MAUVE (độ trôi chảy), citation precision và recall. Baseline: Llama2, Alpaca, Llama2-chat, ChatGPT (có/không truy xuất), Perplexity.ai, CoVE65B, Toolformer, SAIL, Llama2-FT.
 
 ## Results
 
-- **Embedding:** GIST-Law-Embed đạt Hit Rate trung bình 51% và MRR 40% (top-K = 5); chọn k = 15 vì truy xuất được đoạn gốc hơn 60% số lần.
-- **HFM:** cải thiện 9% (nhóm tổng quát) và 38% (nhóm pháp lý) theo điểm trung bình 11 bộ. Ví dụ: Legal Reasoning Causality 0,75 so với 0,52 của LLaMA-3-8B; Contract QA 0,56 so với 0,19. Tuy nhiên HFM kém hơn ở SQuAD v2 (0,45 so với 0,50), Law Stack Exchange (0,28 so với 0,63 của Flan-T5 large) và Canada Tax Court (0,66 so với 0,68).
-- **Hệ thống (open-domain):** điểm liên quan trung bình — Naive RAG 65%, RAG + FTM 70%, LQ-RAG 80%; LQ-RAG đạt answer relevance 88%, context relevance 70%, groundedness 82%.
-- **Closed-domain:** LQ-RAG giảm answer relevance xuống 72% (so với 88% của hai cấu hình còn lại); context relevance và groundedness của mọi cấu hình dưới 50%.
-- **Độ trễ (5 bộ câu hỏi):** Naive 7,2 giây, RAG + FTM 11,2 giây, LQ-RAG 14,6 giây (khoảng gấp đôi).
+- **Self-RAG 13B:** PopQA 55,8; TriviaQA 69,3; PubHealth 74,5; ARC 73,1; FactScore 80,2; ASQA em 31,7, citation precision 70,3, recall 71,3.
+- **Self-RAG 7B:** PopQA 54,9; PubHealth 72,4; FactScore 81,2; ASQA citation precision 66,9.
+- **So sánh:** ChatGPT không truy xuất đạt PopQA 29,3, PubHealth 70,1, FactScore 71,8; Ret-ChatGPT đạt citation precision 65,1 (Self-RAG 13B: 70,3). ChatGPT vẫn tốt hơn ở ARC (75,3), TriviaQA (74,3) và ASQA em (35,3–40,7). Llama2 13B kèm truy xuất chỉ đạt citation precision 2,3.
+- **Llama2-FT7B** (cùng dữ liệu nhưng không có token phản tư) kém Self-RAG, cho thấy lợi ích không chỉ đến từ dữ liệu.
+- **Ablation (bản 7B, 50K mẫu):** bỏ retriever hoặc bỏ critic khi huấn luyện làm giảm mạnh kết quả; luôn dùng top-1 như RAG truyền thống làm giảm mạnh trên PopQA và ASQA; bỏ IsSup làm giảm ASQA.
+- Tăng trọng số IsSup làm tăng citation precision nhưng giảm MAUVE; ngưỡng truy xuất cho phép đánh đổi tần suất truy xuất với độ chính xác. Đánh giá người trên 50 mẫu cho thấy IsRel/IsSup khớp phần lớn với nhận định của người.
 
 **Điểm mạnh.**
 
-- Tinh chỉnh đồng thời cả embedding và mô hình sinh, kèm vòng tự đánh giá–viết lại có điều kiện dừng.
-- Báo cáo cả mặt yếu: thời gian tăng gấp đôi, kết quả kém ở kịch bản closed-domain.
-- Nhấn mạnh phải xét đồng thời ba tiêu chí (answer relevance, context relevance, groundedness) — answer relevance cao mà context thấp có thể là câu trả lời sai.
+- Gộp truy xuất theo nhu cầu, tự đánh giá mức hỗ trợ và trích dẫn vào một mô hình duy nhất; điều chỉnh hành vi lúc suy luận mà không cần huấn luyện lại.
+- Đánh giá rộng (6 tác vụ, nhiều chỉ số), ablation cả huấn luyện lẫn suy luận, có kiểm tra người.
+- Công bố mã và mô hình.
 
 ## Limitations
 
-**(a) Bài báo thừa nhận:** phụ thuộc GPT-4 (mô hình độc quyền) làm tác tử đánh giá; thời gian phản hồi cao; chưa có phản hồi từ chuyên gia pháp lý; cần benchmark pháp lý chuyên biệt và thử nghiệm thực tế.
+**(a) Bài báo thừa nhận:** vẫn có thể sinh nội dung không được trích dẫn hỗ trợ đầy đủ; dữ liệu huấn luyện giới hạn ở 150K và chưa khai thác hết hiệu ứng tăng dữ liệu.
 
-**(b) Quan sát:** cải thiện không đồng đều (HFM thua ở một số bộ pháp lý); đánh giá hệ thống hoàn toàn do LLM chấm, không có người chấm; mức tăng “23%” là tương đối trên điểm liên quan do LLM chấm. Kho dữ liệu lấy từ Library Genesis đặt ra câu hỏi về bản quyền mà bài **không** bàn đến. Bài cũng **không** đánh giá trên ngôn ngữ ngoài tiếng Anh.
+**(b) Quan sát:** cần huấn luyện lại LLM với từ vựng mở rộng — không áp dụng được trực tiếp cho mô hình có sẵn; nhãn critic chưng cất từ GPT-4; đánh giá người chỉ 50 mẫu; một số baseline lấy số từ bài khác; bản 7B đôi khi tốt hơn 13B về độ chính xác sự kiện do câu trả lời ngắn hơn. Bài **không** báo cáo độ trễ suy luận dù có beam search trên nhiều đoạn, và chỉ đánh giá tiếng Anh.
 
 ## Relevance to our topic
 
-LQ-RAG là ví dụ tiêu biểu của hướng “kiểm chứng bằng LLM trong vòng lặp”, và chính bài báo đo được cái giá: độ trễ tăng khoảng gấp đôi. Kết quả này củng cố quyết định của Sys_3_4 dùng verifier tất định (không gọi thêm LLM) để giữ độ trễ thấp, đồng thời cho thấy groundedness là tiêu chí bắt buộc khi chấm câu trả lời.
-
-**Kết luận.** LQ-RAG cho thấy kết hợp tinh chỉnh embedding, mô hình sinh lai và vòng tự đánh giá có thể nâng điểm liên quan của câu trả lời pháp lý, đổi lại độ trễ tăng gấp đôi và phụ thuộc mô hình đóng. Hướng tiếp theo tác giả nêu: tác tử đánh giá chuyên biệt cho luật, đưa phản hồi chuyên gia vào hệ thống, tối ưu thời gian và thử nghiệm thực tế.
+Self-RAG để model tự quyết khi nào truy hồi và tự phê bình đầu ra, tức là 'model quyết định'. Bài 1 so sánh đúng câu hỏi này trên câu hỏi thật: để luật quyết định (A), để điểm reranker quyết định (B), hay để LLM đọc câu hỏi (C, baseline RAG).
 
 ## Possible improvement
 
-- Áp dụng RAG triad (answer relevance, context relevance, groundedness) trong đánh giá Friendly Engine, nhưng chấm bằng người hoặc mô hình mở chạy cục bộ thay vì GPT-4.
-- Thử tinh chỉnh embedding trên dữ liệu thủ tục (theo MNRL như bài) để so sánh với BGE-M3 gốc.
-- Nếu dùng vòng viết lại truy vấn, đặt ngân sách thời gian cứng (Sys_3_4 hiện timeout 7 giây).
+- Thử một biến thể 'LLM tự phê bình' làm baseline thêm, nếu còn thời gian và tài nguyên (bài 1 chưa làm).

@@ -79,6 +79,26 @@ WEAK_COV2 = 0.9
 RESIDUAL_SCORE = 0.9       # mảnh phụ (<=3 chữ) khớp yếu hơn mức này bị coi là phần đệm của ý trước
 NEAR_MASS = 2.0            # top khớp nhiều chữ hơn ứng viên khác >= mức này => người dùng ĐÃ nêu từ phân biệt, không hỏi lại
 HI_IDF = 3.0               # chữ 'đặc trưng' của kho tên thủ tục (đo: chieu 6.3, tuyen 4.8, uong 6.8; ho/dang/ky < 3)
+WEAK_NAME_GATE = __import__("os").environ.get("S3_WEAK_NAME", "1") == "1"
+WEAK_NAME_PREC = 0.06      # A3: đoạn <= 3 chữ khớp mà phủ dưới 6% khối lượng tên lõi thì không phải gọi tên thủ tục
+ORG_DEFAULT = __import__("os").environ.get("S3_ORG_DEFAULT", "1") == "1"
+_ORG_ONLY = re.compile(r"\bdoi voi (?:to chuc|co so ton giao|doanh nghiep)\b")
+_ORG_CUE = re.compile(r"\b(?:cong ty|doanh nghiep|to chuc|hop tac xa|co so ton giao|nha tho|truong hoc|benh vien|tnhh|co phan)\b")
+_PERSON_SUBJ = re.compile(r"\b(?:ho gia dinh|ca nhan)\b")
+
+
+def _person_default(sg, top, text: str) -> str | None:
+    """A6 (24/10): tên thủ tục CHỈ dành cho tổ chức ("... lần đầu đối với tổ chức đang sử dụng đất") mà câu hỏi không nhắc tổ chức nào:
+    người dân hỏi cho chính mình -> lấy bản "hộ gia đình, cá nhân" điểm sát (tên ngắn hơn nên bản tổ chức hay đứng trên). Tắt: S3_ORG_DEFAULT=0."""
+    if not ORG_DEFAULT or not _ORG_ONLY.search(_fold(top.name)) or _ORG_CUE.search(_fold(text or "")):
+        return None
+    for h in sg.hits[1:]:
+        hn = _fold(h.name)
+        if h.score >= top.score - 0.1 and h.nmatch >= top.nmatch - 1 and _PERSON_SUBJ.search(hn) and not _ORG_ONLY.search(hn) and not h.flags:
+            return h.proc_id
+    return None
+
+
 _PREFIX_RE = re.compile(r"^(?:\([^)]{2,30}\)\s*|[^-–]{2,40}?\s[-–]\s)")
 
 
@@ -434,7 +454,7 @@ def resolve(idx: Index, turns: list[dict], accept: float | None = None, shown: l
     Trạng thái hội thoại (ConvState) lấy từ `state` (orchestrator lưu DB) hoặc dựng lại bằng cách chạy lại các lượt user trước.
     Mỗi segment mang `decision`/`why`: follow_up | new_related | return | correction | story | independent | new."""
     accept = ACCEPT_SCORE if accept is None else accept
-    turns = [{**t, "text": _query.unglue_text(strip_labels(t["text"], t["role"])) if t["role"] == "user" else strip_labels(t["text"], t["role"])} for t in turns]     # nhãn lượt ("Turn 2:", "Q:", "2)") của cả lịch sử lẫn câu cuối không phải lời người dùng; chữ dính liền được tách TRƯỚC khi tách ý/xếp hạng (tách ý dùng cặp chữ liền kề)
+    turns = [{**t, "text": _query.unglue_text(_query.normalize_terms(_query.strip_letter(strip_labels(t["text"], t["role"])))) if t["role"] == "user" else strip_labels(t["text"], t["role"])} for t in turns]     # nhãn lượt ("Turn 2:", "Q:", "2)") của cả lịch sử lẫn câu cuối không phải lời người dùng; lời gửi cơ quan / chào / cảm ơn (A1, 24/10) bỏ; chữ dính liền được tách TRƯỚC khi tách ý/xếp hạng (tách ý dùng cặp chữ liền kề)
     user_turns = [t["text"] for t in turns if t["role"] == "user"]
     if state is not None:
         st = state if isinstance(state, ConvState) else ConvState.from_dict(state)
@@ -733,6 +753,30 @@ def _drop_narrative(segs: list) -> list:
     return keep
 
 
+FOCUS_MIN_WORDS = 25
+
+
+def _focus(segs: list, text: str) -> list:
+    """A5 (24/10, câu khó): câu KỂ DÀI (>= 25 chữ) có >= 2 đoạn chọn được thủ tục -> chỉ giữ đoạn là CÂU HỎI (lời kể nhắc thủ tục khác:
+    "tôi đăng ký tạm trú ở phường 25 ..." trước câu hỏi nhập hộ khẩu). Điểm: dấu "?", động từ yêu cầu / trợ từ hỏi, có mục được hỏi;
+    hoà thì đoạn SAU (câu hỏi thường ở cuối thư). Câu ngắn hỏi nhiều thủ tục ("khai sinh và kết hôn cần gì") giữ nguyên. Tắt: S3_FOCUS=0."""
+    import os
+    if os.environ.get("S3_FOCUS", "1") != "1" or len(text.split()) < FOCUS_MIN_WORDS:
+        return segs
+    if len([sg for sg in segs if sg.proc_id]) < 2:
+        return segs
+
+    def key(i, sg):
+        h = _hit_of(sg)
+        strong = bool(h and h.prec >= 0.35 and h.nmatch >= 2)       # gọi tên chắc: "hình thức làm như thế nào" (~ "Chuyển hình thức giao đất") thì không
+        return (strong, 2 * ("?" in sg.text) + _asks(sg.text) + bool(sg.query.fields), round(_prec(sg), 2), i)
+    best = max((key(i, sg), sg) for i, sg in enumerate(segs) if sg.proc_id)[1]
+    for sg in segs:         # mục được hỏi ở các đoạn hỏi khác ("..., cần giấy tờ gì?") vẫn là mục của câu hỏi chính
+        if sg is not best and not sg.proc_id and _req(sg):
+            best.query.fields += [f for f in sg.query.fields if f not in best.query.fields]
+    return [best]           # chỉ đoạn câu hỏi: lời kể không còn là task riêng (Planner chỉ lấy 3 task đầu: đoạn hỏi đứng thứ 4-5 từng bị cắt)
+
+
 _STEPS_WORD = re.compile(r"\b(?:cac buoc|buoc|trinh tu|quy trinh|cach thuc|cach lam|lam sao|lam the nao|thu tuc)\b")
 
 
@@ -830,6 +874,52 @@ def _domain_near(idx: Index, q: Query, top: Hit) -> list[str]:
                     break
             return reps if len(reps) >= 3 else []
     return []
+
+
+R2 = __import__("os").environ.get("S3_R2", "0") == "1"
+
+
+def _lex_request(text: str, hint: str) -> bool:
+    """Vòng cải thiện 2: câu có một yêu cầu thủ tục mà bảng từ dân dùng nhận ra RÕ ("sang tên, đổi chủ xe ô tô") và khác thủ tục suy từ
+    sự kiện đời sống ("bố tôi đã mất" -> khai tử) -> yêu cầu rõ thắng, không để lời kể quyết định (real_v2-073). Tắt: S3_R2=0."""
+    if not R2:
+        return False
+    hw = set(_fold(hint).split())
+    for rx, rep in _query._LEX2_RE:
+        if rx.search(text) and len(set(_fold(rep).split()) - hw - {"dang", "ky", "cap", "thu", "tuc"}) >= 2:
+            return True
+    return False
+
+
+def _lex_named(sg, top, accept: float) -> bool:
+    """Vòng cải thiện 2: đoạn chứa một tên chính thức mà bảng từ dân dùng đã nhận ra (thay vào chữ của người dân), và tên thủ tục đứng đầu
+    chứa gần đủ các chữ của tên đó -> nhận dù độ phủ bị lời kể dài kéo xuống dưới ngưỡng ("em bị mất bằng ... cấp lại giúp em bằng tốt
+    nghiệp" -> cấp bản sao từ sổ gốc: điểm 0,55, phủ 0,49; real_v2-097). Điểm vẫn phải gần ngưỡng. Tắt: S3_R2=0."""
+    if not R2 or top.score < accept - 0.1:
+        return False
+    seg, name = _fold(sg.text), set(_fold(top.name).split())
+    for _rx, rep in _query._LEX2_RE:
+        rw = _fold(rep).split()
+        if len(rw) >= 3 and _fold(rep) in seg and sum(w in name for w in rw) >= 0.8 * len(rw):
+            return True
+    return False
+
+
+def _lex_pick(sg, top):
+    """Vòng cải thiện 2: tên chính thức do bảng từ dân dùng thay vào ("công chứng giấy tờ" -> "chứng thực bản sao từ bản chính") nằm NGUYÊN CỤM
+    trong tên của đúng một ứng viên điểm sát top, còn top không chứa cụm đó -> chọn ứng viên ấy (top "cấp bản sao có chứng thực từ bản chính
+    hợp đồng, giao dịch" chỉ trùng chữ; real_v2-292). Tắt: S3_R2=0."""
+    if not R2:
+        return None
+    seg, tname = _fold(sg.text), _fold(top.name)
+    reps = [r for r in dict.fromkeys(_fold(rep) for _rx, rep in _query._LEX2_RE) if len(r.split()) >= 3 and r in seg]
+    if any(r in tname for r in reps):
+        return None        # top cũng là một tên bảng từ đã nhận ra ("nhập khẩu" -> đăng ký thường trú, cạnh "sổ tạm trú"): giữ top
+    for r in reps:
+        pick = [h for h in sg.hits[1:4] if h.score >= top.score - 0.1 and not h.flags and r in _fold(h.name)]
+        if len(pick) == 1:
+            return pick[0]
+    return None
 
 
 def _resolve_text(idx: Index, text: str, st: ConvState, accept: float, options: list | None = None, events: bool = True, one: bool = False) -> list[Segment]:
@@ -945,7 +1035,11 @@ def _resolve_text(idx: Index, text: str, st: ConvState, accept: float, options: 
             # cổng chữ-đặc-trưng: KHÔNG chữ hiếm nào của câu hỏi nằm trong tên thủ tục => khớp tình cờ bằng chữ chung.
             # ponytail: chỉ chặn khi 0 chữ hiếm khớp (chữ hiếm thừa như 'nộp','tốn' làm so tỉ lệ bị sai); chủ đề tình cờ vẫn dựa OOS_TOPICS
             sg.reason = "out_of_scope"
-        elif top.score < accept or top.cov < ACCEPT_COV:
+        elif (top.score < accept or top.cov < ACCEPT_COV) and not _lex_named(sg, top, accept):
+            sg.reason = "out_of_scope"
+        elif WEAK_NAME_GATE and top.prec < WEAK_NAME_PREC and top.nmatch <= 3:
+            # A3 (24/10): đoạn ngắn chỉ trùng vài chữ của một tên RẤT dài ("bộ công an" ~ 1.115406 "...thuộc Công an nhân dân tham gia chiến tranh...": prec 0,017)
+            # phủ đủ chữ của đoạn (cov 1,0) nhưng không gọi tên thủ tục nào. Tắt: S3_WEAK_NAME=0.
             sg.reason = "out_of_scope"
         elif (top.prec < WEAK_PREC and top.hi_miss > 0) or (top.hi_match == 0 and top.cov < GENERIC_COV) or (top.prec < WEAK_PREC2 and top.cov < WEAK_COV2 and _phrase(idx, sg.query, top) < 0.5):
             # bằng chứng yếu: (a) câu chỉ phủ một mẩu rất nhỏ của tên dài VÀ còn chữ đặc trưng không khớp; (b) chỉ khớp chữ chung ("đăng ký") mà còn chữ lạ ("lớp 1")
@@ -954,12 +1048,20 @@ def _resolve_text(idx: Index, text: str, st: ConvState, accept: float, options: 
             sg.reason = "flagged:" + ",".join(top.flags)
         else:
             sg.proc_id, sg.reason = top.proc_id, "in_scope"
-            _alt = choose_variant(idx, sg, top.proc_id, text)      # đổi sang biến thể anh em cùng họ khi câu hỏi nói ra trục khác biệt (xem variants.py)
+            person = _person_default(sg, top, text)
+            sg.proc_id = person or sg.proc_id
+            _alt = choose_variant(idx, sg, sg.proc_id, text)      # đổi sang biến thể anh em cùng họ khi câu hỏi nói ra trục khác biệt (xem variants.py)
             if _alt:
                 sg.proc_id = _alt
             sg.uncertain = top.score < UNCERTAIN_SCORE or top.cov < UNCERTAIN_COV or top.extras >= UNCERTAIN_EXTRAS
             sg.ambiguous = any(h.head != top.head and h.score >= top.score - AMBIG_GAP for h in sg.hits[1:])
-            sg.near = _near(idx, sg.query, top, sg.hits) or _domain_near(idx, sg.query, top)
+            ntop, nhits = top, sg.hits
+            if R2 and person:     # bản chỉ dành cho tổ chức đã bị loại ở trên: không còn là một lựa chọn để hỏi lại (sổ đỏ lần đầu: tổ chức ~ hộ gia đình, cá nhân)
+                ntop = next(h for h in sg.hits if h.proc_id == person)
+                nhits = [h for h in sg.hits if not _ORG_ONLY.search(_fold(h.name))]
+            elif not _alt and (lp := _lex_pick(sg, top)):
+                sg.proc_id, ntop = lp.proc_id, lp
+            sg.near = _near(idx, sg.query, ntop, nhits) or _domain_near(idx, sg.query, ntop)
     if len(segs) > 1 and not cmp:
         # mảnh sau dấu phẩy/"và" ngắn mà khớp yếu ("có kết quả", "bằng hình thức nào") là phần đệm của ý trước, không phải thủ tục mới
         def _weak(sg):
@@ -995,6 +1097,7 @@ def _resolve_text(idx: Index, text: str, st: ConvState, accept: float, options: 
             if alt and alt[0].proc_id and (under or _prec(alt[0]) > _prec(req) + 0.05):      # ghép lời kể khi câu hỏi riêng không đủ tên, hoặc tên thủ tục khớp tốt hơn
                 return alt
         all_segs, segs = segs, _drop_narrative(segs)
+        segs = _focus(segs, main)
         _share_fields(segs)
     if cmp and len(segs) == 2:
         shared = list(dict.fromkeys(f for sg in segs for f in sg.query.fields)) or ["explanation"]    # so sánh: mục nêu ở một vế áp cho cả hai; không nêu thì lấy mô tả
@@ -1004,7 +1107,8 @@ def _resolve_text(idx: Index, text: str, st: ConvState, accept: float, options: 
     hint, rest = event_hints(merged)
     # câu nói về việc KHÁC có chữ 'đám cưới' ("xin giấy phép tổ chức đám cưới ngoài trời"): còn chữ nghiệp vụ lạ ngoài sự kiện => không đoán
     odd = sum(idx._weight(t) >= HI_IDF for t in understand(idx.conn, rest, idx.syn).terms if len(t) >= 4 and t not in ("phuong",) and t not in _fold(hint).split()) >= 3   # ponytail: đếm >=3 chữ hiếm lạ; đủ cho ca đo được, chưa phải mô hình
-    if events and hint and not odd and not any(_is_named(sg) and _hit_of(sg).prec >= 0.3 for sg in all_segs) and not any(sg.oos_topic for sg in segs):
+    if (events and hint and not odd and not any(_is_named(sg) and _hit_of(sg).prec >= 0.3 for sg in all_segs) and not any(sg.oos_topic for sg in segs)
+            and not _lex_request(merged, hint)):
         alt = _resolve_text(idx, hint + " " + merged, ConvState(), accept, events=False, one=True)   # sự kiện đời sống ("bé mới sinh") -> tên thủ tục thường gặp
         if any(s.proc_id for s in alt):
             for s in alt:

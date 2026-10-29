@@ -56,9 +56,7 @@ NAME = re.compile(r"\b([Ôô]ng|bà|[Aa]nh|[Cc]hị|[Cc]ô|[Cc]hú)\s+((?:[A-ZÀ
 # "Tôi là / tên là / tên / Bạn đọc + 2-4 chữ hoa" = tự giới thiệu tên (chạy trước NAME)
 INTRO = re.compile(r"\b(Tôi là|tôi là|Cháu là|cháu là|Em là|em là|Mình là|tên là|tên|Bạn đọc)\s+(?:[A-ZÀ-Ỵ][a-zà-ỹ]+\b\s*){2,4}")
 # Tên người còn sót sau khi đọc quét tay 300 câu (chỉ che chữ, không chọn câu). Chỉ che tên người, không che tên đường / trường / địa danh.
-MANUAL_NAMES = ["Phạm Văn Cu", "Trần Công Duy", "Nguyễn Thành Nam", "Tăng Thị Minh Nhĩ", "Tăng Thị Nhĩ", "Phan Thị Hiền", "Nguyễn Thanh Tâm",
-                "Nguyễn Nhật Minh", "Nguyễn Ngọc Ánh", "Nguyễn Danh Hùng", "Đoàn Minh Lâm", "Nguyễn Thị Phượng", "Vũ Văn Tịnh", "Ngô Thành Vinh",
-                "Nguyễn Cần", "Trịnh Thị Chín", "Tôi là Nguyễn Văn Linh"]
+MANUAL_NAMES = []   # bản công khai: đã xoá 17 họ tên người thật tìm được khi đọc tay (không công bố)
 
 
 def fold(s: str) -> str:

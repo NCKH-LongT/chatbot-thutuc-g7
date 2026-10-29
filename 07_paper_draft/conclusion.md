@@ -1,13 +1,5 @@
-# 6. CONCLUSION & FUTURE WORK
+> Sinh tự động từ `latex/sections/conclusion.tex` ngày 28/10/2026 để đọc trên GitHub. Bản chuẩn là LaTeX; muốn sửa thì sửa tệp `.tex`.
 
-This paper presented **Sys_3_4**, an enterprise context-aware legal artificial intelligence assistant designed for Vietnamese public administration. By integrating a deterministic **Strict Engine (System 3)** with an extensible **Friendly Engine (System 4)** and enforcing multi-turn *Clarify State Isolation*, the architecture resolves the twin hazards of hallucination and conversational drift. 
+## 8. Conclusion
 
-Extensive empirical evaluations across 1,352 standardized test cases demonstrate:
-- **78% behavioral accuracy and 73% Top-1 retrieval** (MRR 0.759, nDCG@5 0.752) on the official 553-case blind evaluation suite.
-- **85% behavioral accuracy and 78% Top-1** (MRR 0.824, nDCG@5 0.805) on the official HOLDOUT-4 benchmark.
-- **91% general accuracy (29/32), 100% document QA citation accuracy, and zero web numerical hallucinations** on System 4.
-- **100% PII redaction recall** on citizen identity numbers and telephone formats.
-- **100% adversarial prompt injection resistance** across 11 distinct attack vectors.
-- Sub-100 ms pure algorithmic retrieval latency on commodity CPU hardware.
-
-Future work will focus on expanding text-to-SQL aggregation for administrative procedure listings, integrating regional dialectal query expansion, and implementing semantic vector caching (GPTCache) and continuous memory serving (vLLM) for provincial-scale deployment.
+For an assistant limited to commune-level procedures, the hard part of real citizen questions is deciding whether to answer at all. A system that looked strong on team-written questions answered 114 of the 248 real questions it should have refused. A small, transparent rule layer nearly doubled the end-to-end correct answers on a locked test set and kept its gain in refusals on a second one; neither a reranker nor a local 4B LLM reader significantly improved balanced or end-to-end accuracy, nor did two gates learned *post hoc* in place of the hand-written one, and letting the model decide was no better than always refusing. A second round of rules that looked better on development tied the first on new questions, and answers remain wrong more often than right on random traffic. Future work: confidence-based answering with human confirmation, procedure names proposed by the model while rules decide, a third locked set, and independent human annotation.

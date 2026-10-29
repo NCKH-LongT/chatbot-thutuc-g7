@@ -1,77 +1,78 @@
-# Paper 07 Summary
+# Paper 07 Summary — Rebedea2023
+
+Nhóm khuôn B2: **liên quan trực tiếp**. Kiểm chứng 25/10/2026: các con số trong tệp đã đối chiếu với PDF trên ACL Anthology (tải 25/10/2026). Phần nội dung bài gốc chép từ tóm tắt cũ (docs/research paper/paper_summaries/paper_33.md); hai mục cuối viết lại cho bài 1.
 
 ## Citation
 
-Tên bài: LegalCheck: Retrieval- and Context-Augmented Generation for Drafting Municipal Legal Advice Letters
-Tác giả: Virgill van der Meer (Municipality of Amsterdam), Julien Rossi (University of Amsterdam)
-Năm: 2026
-Nguồn: Proceedings of the 21st International Conference on Artificial Intelligence and Law (ICAIL 2026), Singapore, 8–12/6/2026 — short paper, hội nghị có bình duyệt (ACM/IAAIL). Trang arXiv ghi “Accepted at ICAIL 2026 as Short Paper”.
-DOI/Link: https://arxiv.org/abs/2605.12012 (bản PDF trong repo vẫn để DOI ACM dạng “XXXXXXX”, chưa có DOI chính thức tại thời điểm kiểm tra)
+Tên bài: NeMo Guardrails: A Toolkit for Controllable and Safe LLM Applications with Programmable Rails
+Tác giả: Traian Rebedea, Razvan Dinu, Makesh Sreedhar, Christopher Parisien, Jonathan Cohen (NVIDIA)
+Năm: 2023
+Nguồn: Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing: System Demonstrations (EMNLP 2023 Demo), tr. 431–445 — hội nghị có bình duyệt (track demo)
+DOI/Link: https://aclanthology.org/2023.emnlp-demo.40/ (DOI 10.18653/v1/2023.emnlp-demo.40)
 
 ## Problem
 
-**Tóm tắt tổng quan.** LegalCheck là hệ thống soạn thảo thư tư vấn pháp lý cho các đơn khiếu nại (bezwaar) của công dân tại phòng pháp chế thành phố Amsterdam. Hệ thống kết hợp RAG (truy xuất thư tư vấn cũ và văn bản quy phạm) với CAG (Context-Augmented Generation): đưa hồ sơ vụ việc, kết luận dự kiến do chuyên viên chọn và phản hồi của chuyên viên vào nhiều vòng sinh. Trong thí điểm 6 tháng, 81% nội dung bản nháp AI được giữ nguyên trong thư cuối cùng, và tổng thời gian xử lý giảm 50–70% với các vụ đơn giản.
+**Tóm tắt tổng quan.** Bài báo giới thiệu NeMo Guardrails, bộ công cụ mã nguồn mở (Apache 2.0) để thêm các “rail” (hàng rào) có thể lập trình vào ứng dụng hội thoại dùng LLM. Khác với rail “nhúng” vào mô hình qua căn chỉnh (alignment) khi huấn luyện, rail lập trình được định nghĩa lúc chạy bằng ngôn ngữ mô hình hóa Colang, độc lập với LLM nền và có thể diễn giải. Runtime đóng vai trò proxy giữa người dùng và LLM, giống một bộ quản lý hội thoại. Kết quả ban đầu cho thấy cách tiếp cận dùng được với nhiều nhà cung cấp LLM, kể cả mô hình mở cỡ nhỏ.
 
-**Bối cảnh và động lực.** Phòng pháp chế đô thị thiếu nhân sự, trong khi khối lượng khiếu nại hành chính và môi trường tăng 35% trong năm năm. Thư tư vấn là văn bản rủi ro cao: phải dẫn đúng luật và tiền lệ, khớp sự kiện, giữ giọng văn chuyên nghiệp nhưng thân thiện với công dân. Theo tác giả, các nghiên cứu NLP pháp lý trước chủ yếu phân loại hoặc dự đoán phán quyết; các nghiên cứu sinh văn bản pháp lý chỉ dừng ở thử nghiệm phòng lab. Chưa có công trình triển khai LLM soạn văn bản pháp lý chính thức trong quy trình thật của khu vực công.
+**Bối cảnh và động lực.** Để triển khai thực tế, LLM cần bám chủ đề qua nhiều lượt, tránh ảo giác và chống tấn công chèn lệnh/jailbreak. Căn chỉnh mô hình cần nhiều dữ liệu gán nhãn và khó thay đổi lúc chạy; prompt/CoT đơn thuần khó kiểm soát; hệ hội thoại truyền thống (NLU + quản lý hội thoại như Rasa) thì cứng nhắc và tốn công thiết kế. Tác giả muốn kết hợp tính kiểm soát của quản lý hội thoại với khả năng tổng quát của LLM.
 
 ## Method
 
-1. **Đầu vào của chuyên viên:** đơn khiếu nại, biên bản của cán bộ thực thi, kết luận dự kiến (chấp nhận/bác bỏ), và tùy chọn “steering advice”. Có bước tùy chọn che danh tính (tên, địa chỉ, số định danh, biển số) và khôi phục danh tính sau khi duyệt.
-2. **RAG:** một lệnh gọi LLM tóm tắt đơn khiếu nại; nhúng bằng text-embedding-ada-002 (1.536 chiều); tìm 50–200 đoạn “Objection” tương tự bằng cosine, rồi lấy đoạn “Explanation” tương ứng của cùng vụ. Truy xuất trong bộ nhớ, không cần CSDL vector, độ trễ mức mili-giây ở quy mô 14.000 vụ.
-3. **Sinh bản nháp:** GPT-4o (Azure OpenAI), nhiệt độ 0,1, theo mẫu prompt quy định cấu trúc và văn phong chính thức của thành phố; mất khoảng 20–25 giây.
-4. **CAG tinh chỉnh:** chuyên viên ghi chú lỗi hoặc thiếu sót; hệ thống tạo prompt mới gồm bản nháp v1, hồ sơ, ghi chú và (tùy chọn) truy xuất lại → sinh bản v2. Thường chỉ cần 0–1 vòng.
-5. **Kiểm soát:** chuyên viên luôn là người duyệt cuối; lưu nhật ký nguồn và prompt để kiểm toán.
+1. **Colang và dạng chuẩn (canonical form):** kịch bản gồm dạng chuẩn của người dùng, luồng hội thoại và dạng chuẩn của bot; tất cả được đánh chỉ mục trong cơ sở dữ liệu vector (Annoy, FAISS) để chọn ví dụ few-shot theo độ tương đồng.
+2. **Topical rails – runtime 3 bước:** (i) sinh dạng chuẩn cho câu người dùng bằng few-shot; (ii) quyết định bước tiếp theo — theo luồng định sẵn nếu khớp, nếu không thì để LLM sinh luồng tương tự; (iii) sinh câu trả lời của bot theo bước đó (ví dụ “bot inform cannot answer” để né câu hỏi chính trị).
+3. **Execution rails:** hành động tùy biến viết bằng Python, gọi từ Colang bằng từ khóa `execute`, gồm:
+   - *Fact-checking rail:* coi là bài toán suy diễn (entailment) — LLM trả lời yes/no câu trả lời có được hỗ trợ bởi bằng chứng truy hồi không;
+   - *Hallucination rail:* tự nhất quán kiểu SelfCheckGPT — lấy n mẫu, ghép n−1 làm ngữ cảnh và kiểm tra mẫu thứ n;
+   - *Moderation rails:* kiểm duyệt đầu vào (jailbreak rail) và đầu ra bằng một LLM được căn chỉnh tốt.
 
 ```mermaid
 flowchart TD
-    J["Chuyên viên: đơn khiếu nại, biên bản, kết luận, steering advice"] --> DI["Che danh tính - tùy chọn"]
-    DI --> S["LLM tóm tắt đơn"]
-    S["LLM tóm tắt đơn"] --> R["Embedding ada-002 → top 50–200 đoạn Objection → lấy Explanation tương ứng"]
-    KB[("23.500 thư tư vấn cũ + quy định")] --> R
-    R --> G["GPT-4o, nhiệt độ 0,1 → bản nháp v1"]
-    G --> RV{"Chuyên viên rà soát"}
-    RV -->|ghi chú| C["CAG: prompt tinh chỉnh → bản nháp v2"]
-    C["CAG: prompt tinh chỉnh → bản nháp v2"] --> RV
-    RV -->|duyệt| F["Thư chính thức + nhật ký nguồn"]
-    F["Thư chính thức + nhật ký nguồn"] --> RI["Khôi phục danh tính"]
+    U["Tin nhắn người dùng"] --> IM["Input moderation / jailbreak rail"]
+    IM --> CF["Bước 1: sinh dạng chuẩn người dùng - few-shot từ vector DB"]
+    CF --> NS{"Bước 2: khớp luồng Colang?"}
+    NS -->|Có| FL["Lấy bước tiếp theo từ luồng định sẵn"]
+    NS -->|Không| LLMF["LLM sinh bước tiếp theo"]
+    FL --> EX["Execution rails: action Python, fact-check, hallucination"]
+    LLMF --> EX["Execution rails: action Python, fact-check, hallucination"]
+    EX --> BM["Bước 3: sinh câu trả lời bot"]
+    BM --> OM["Output moderation"]
+    OM["Output moderation"] --> R["Trả lời người dùng"]
 ```
 
 ## Dataset
 
-Thư tư vấn pháp lý 2022–2025 của thành phố Amsterdam thuộc các lĩnh vực phạt rác thải và cẩu kéo xe đạp, ô tô, tàu thuyền: khoảng 23.500 thư, mỗi lĩnh vực từ khoảng 150 đến 14.000 vụ. Thư được cắt theo mục (Case Details, Objection, Hearing, Explanation, Conclusion) và ẩn danh theo GDPR. Dữ liệu là bí mật, không công bố.
+- Topical rails: bộ NLU Banking (Casanueva et al., 2022) chuyển thành ứng dụng Colang; tập kiểm thử cân bằng 231 mẫu, 77 intent (tối đa 3 mẫu/intent); thêm bộ dữ liệu khác ở Phụ lục G.
+- Moderation: Anthropic Red-Teaming (prompt có điểm có hại cao nhất) và Helpful, lấy mẫu cân bằng.
+- Fact-checking: MS MARCO; câu trả lời âm “khó” được tạo bằng cách nhờ text-davinci-003 viết lại câu trả lời đúng.
+- Hallucination: 20 câu hỏi có tiền đề sai (không có câu trả lời đúng).
 
 ## Evaluation
 
-Đánh giá hỗn hợp trong 6 tháng triển khai: tỷ lệ giữ lại (phần nội dung AI được giữ nguyên sau khi chỉnh sửa), Recall/Precision/F1 về nội dung so với thư do người viết, tỷ lệ tiết kiệm thời gian (khoảng 20 chuyên viên tự ghi thời gian, so với ước tính lịch sử 3/6/16 giờ mỗi vụ), mức giữ lại các sự kiện chính trên khoảng 250 vụ, cùng khảo sát và phỏng vấn người dùng. Bài **không** có baseline hệ thống khác (ví dụ RAG một vòng không có CAG, hoặc LLM không truy xuất).
+Topical rails: độ chính xác của dạng chuẩn, bước tiếp theo và câu trả lời bot qua từng bước. Moderation: tỷ lệ prompt có hại bị chặn và tỷ lệ prompt hữu ích được cho qua. Fact-checking: độ chính xác phân loại entailment. Hallucination: tỷ lệ câu hỏi tiền đề sai được né/chặn (mọi câu trả lời khác né tránh đều tính là thất bại). Mô hình: text-davinci-003, gpt-3.5-turbo, falcon-7b-instruct, llama2-13b-chat…
 
 ## Results
 
-- Bảng 1: Recall 93%, Precision 91%, F1 92%; tỷ lệ giữ lại 81% (chuyên viên chỉ thêm khoảng 8% nội dung mới); tiết kiệm 92% thời gian ở khâu soạn thảo; giảm 50–70% tổng thời gian xử lý (vụ 6 giờ còn 2–3 giờ).
-- Hơn 99% bản nháp chứa đủ các sự kiện chính (ngày vi phạm, loại vi phạm, địa điểm). Có 68% thư AI dài hơn thư người viết, trung bình nhiều hơn 41% nội dung.
-- Ngoại suy: với 5.800 khiếu nại/năm, tiết kiệm 12.000–17.000 giờ (≈10–14 nhân sự, ≈1,2–1,7 triệu euro). Tác giả nêu rõ đây là ước tính giả định triển khai đầy đủ.
-- Định tính: chuyên viên ban đầu hoài nghi, sau tăng mức tin tưởng; mọi lần dùng chức năng tinh chỉnh đều cho bản nháp “thỏa đáng”.
-- Không có ablation RAG so với RAG + CAG; tác giả đưa việc so sánh mù này vào hướng nghiên cứu tiếp theo.
+- **Topical rails:** dùng được với cả mô hình mở nhỏ (falcon-7b-instruct, llama2-13b-chat); mỗi bước trong quy trình 3 bước đều cải thiện hiệu năng; cần ít nhất k = 3 mẫu mỗi dạng chuẩn trong vector DB; với mô hình sinh dạng chuẩn đa dạng (gpt-3.5-turbo) nên dùng khớp tương đồng thay vì khớp chính xác. Bài chỉ trình bày bằng biểu đồ (Hình 5), không nêu số cụ thể trong phần chính.
+- **Moderation:** dùng cả rail đầu vào và đầu ra bền vững hơn hẳn dùng riêng một rail; với gpt-3.5-turbo chặn gần 99% prompt có hại (so với 93% khi không có rail) và chỉ chặn 2% prompt hữu ích.
+- **Fact-checking:** text-davinci-003 và gpt-3.5-turbo đạt độ chính xác tổng thể khoảng 80%.
+- **Hallucination:** text-davinci-003 tự nó không né được câu hỏi tiền đề sai, rail chặn được 70%; gpt-3.5-turbo tự né hoặc cảnh báo ở 65% trường hợp, có rail tăng lên 95%.
 
 **Điểm mạnh.**
 
-- Nghiên cứu triển khai thật trong cơ quan hành chính, có quy trình con người duyệt cuối, nhật ký kiểm toán, che/khôi phục danh tính và phân loại rủi ro theo EU AI Act.
-- Thiết kế truy xuất theo cặp mục Objection → Explanation khai thác cấu trúc văn bản hành chính một cách khéo léo.
-- Đánh giá đa chiều: chất lượng văn bản, thời gian, độ chấp nhận của người dùng.
+- Tách chính sách hành vi khỏi mô hình: rail tường minh, có thể diễn giải, độc lập với LLM và thay đổi lúc chạy.
+- Kết hợp quản lý hội thoại có cấu trúc với khả năng tổng quát của LLM (LLM sinh luồng mới khi chưa định nghĩa).
+- Cung cấp sẵn rail an toàn (kiểm chứng, ảo giác, kiểm duyệt) và công cụ đánh giá; mã nguồn mở, có ví dụ.
 
 ## Limitations
 
-**(a) Bài báo thừa nhận:** chỉ một cơ quan, bốn lĩnh vực thực thi, nhóm người dùng nhỏ; phụ thuộc LLM bên thứ ba; chưa nghiên cứu tác động dài hạn tới việc làm và cảm nhận công bằng của công dân; dữ liệu bí mật nên khó tái lập; rủi ro tái tạo thiên kiến từ quyết định cũ (đã kiểm tra mẫu, chưa phát hiện vấn đề).
+**(a) Bài báo thừa nhận:** rail lập trình bằng prompt và Colang không phải giải pháp hoàn hảo; không nên dùng đơn lẻ, đặc biệt với rail an toàn — cần kết hợp với rail nhúng trong mô hình. Ba lời gọi CoT nối tiếp không thể gộp batch, làm độ trễ và chi phí tăng khoảng 3 lần so với một lời gọi thông thường; prompt phức tạp hơn cũng tăng chi phí. Rail cần được kiểm thử kỹ trước khi đưa vào sản xuất.
 
-**(b) Quan sát:** cách tính Recall/Precision/F1 so với thư người viết không được mô tả chi tiết; thời gian “trước” là ước tính lịch sử chứ không phải đo song song; không có kiểm định thống kê hay nhóm đối chứng. Bài **không** đo tỷ lệ ảo giác hay lỗi dẫn chiếu sai một cách hệ thống, và dữ liệu được gửi lên đám mây (Azure) dù đã giảm thiểu.
+**(b) Quan sát:** là bài demo nên đánh giá còn nhỏ và chủ yếu bằng biểu đồ (20 câu hỏi tiền đề sai cho hallucination rail; 231 mẫu cho topical rails); nhiều số liệu nằm ở phụ lục. Các rail an toàn đều dựa vào chính LLM để phán xét, nên không có đảm bảo tất định; không đánh giá trước các tấn công chèn lệnh gián tiếp hay thích nghi. Chỉ tiếng Anh; độ trễ không được đo trực tiếp ngoài ước lượng “khoảng 3 lần”.
 
 ## Relevance to our topic
 
-Đây là bài gần nhất về bối cảnh “AI cho cơ quan hành chính địa phương xử lý yêu cầu của công dân”. Bài củng cố các nguyên tắc của Sys_3_4: căn cứ vào dữ liệu nội bộ của cơ quan, giữ nguồn trích dẫn, ghi nhật ký (trace), che PII trước khi đưa vào LLM, và con người hoặc code chịu trách nhiệm phần quyết định — LLM chỉ diễn giải.
-
-**Kết luận.** LegalCheck chứng minh RAG kết hợp CAG nhiều vòng có thể tạo bản nháp văn bản pháp lý gần như hoàn chỉnh và tiết kiệm đáng kể thời gian trong môi trường hành chính thực, với điều kiện có con người duyệt cuối. Do thiếu nhóm đối chứng và dữ liệu không công khai, các con số nên được hiểu là kết quả thí điểm. Hướng tiếp theo: mở rộng lĩnh vực, phân tích ảnh bằng chứng, so sánh mù RAG với RAG + CAG, và cân nhắc mô hình nội bộ.
+NeMo Guardrails: 'rail' do người viết, chạy lúc suy luận, độc lập với LLM. Đây là tham chiếu gần nhất cho lớp luật của bài 1: luật tường minh, kiểm toán được, quyết định trước khi có model. Khác biệt: bài 1 đo hiệu quả của luật trên câu hỏi thật với tập test khoá trước.
 
 ## Possible improvement
 
-- Sys_3_4 thay GPT-4o trên đám mây bằng mô hình cục bộ — đúng hướng tác giả nêu là “mô hình nội bộ trong tương lai”.
-- Bổ sung đo lường định lượng mà bài thiếu: tỷ lệ sai số liệu (lệ phí, thời hạn) và so sánh có/không có verifier.
-- Áp dụng truy xuất theo cặp mục (câu hỏi → phần trả lời tương ứng) cho dữ liệu hỏi-đáp thủ tục của nhóm.
+- Viết các luật của bài 1 thành danh mục kiểm thử được từng luật (giống luồng Colang), để người khác kiểm toán.

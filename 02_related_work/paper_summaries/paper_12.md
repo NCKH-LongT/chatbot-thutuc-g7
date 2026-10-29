@@ -1,79 +1,80 @@
-# Paper 12 Summary
+# Paper 12 Summary — ViGPTQA2023
+
+Nhóm khuôn B2: **lĩnh vực ứng dụng**. Kiểm chứng 25/10/2026: các con số trong tệp đã đối chiếu với PDF trong docs/research paper. Phần nội dung bài gốc chép từ tóm tắt cũ (docs/research paper/paper_summaries/paper_01.md); hai mục cuối viết lại cho bài 1.
 
 ## Citation
 
-Tên bài: STARD: A Chinese Statute Retrieval Dataset Derived from Real-life Queries by Non-professionals
-Tác giả: Weihang Su, Yiran Hu, Anzhe Xie, Qingyao Ai, Zibing Que, Ning Zheng, Yun Liu, Weixing Shen, Yiqun Liu (Đại học Thanh Hoa; Đại học Bắc Kinh)
-Năm: 2024
-Nguồn: Findings of the Association for Computational Linguistics: EMNLP 2024, trang 10658–10671 — hội nghị hàng đầu về NLP, có bình duyệt
-DOI/Link: https://aclanthology.org/2024.findings-emnlp.625/ (DOI: 10.18653/v1/2024.findings-emnlp.625)
+Tên bài: ViGPTQA – State-of-the-Art LLMs for Vietnamese Question Answering: System Overview, Core Models Training, and Evaluations
+Tác giả: Minh-Thuan Nguyen, Khanh-Tung Tran, Vincent Nguyen, Xuan-Son Vu
+Năm: 2023
+Nguồn: Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing: Industry Track (EMNLP 2023), trang 754–764 — hội nghị có bình duyệt (peer-reviewed), ACL Anthology
+DOI/Link: https://aclanthology.org/2023.emnlp-industry.70/ (DOI: 10.18653/v1/2023.emnlp-industry.70)
 
 ## Problem
 
-**Tóm tắt tổng quan.** Bài báo giới thiệu STARD — bộ dữ liệu truy xuất điều luật tiếng Trung gồm 1.543 câu hỏi thật từ tư vấn pháp luật của người dân (không chuyên) và 55.348 điều luật ứng viên. Tác giả đề xuất quy trình gán nhãn ba bước (Recall, Query Decomposition, Filter), đánh giá nhiều nhóm baseline truy xuất, và thử dùng STARD làm kho tri thức cho RAG. Kết quả tốt nhất chỉ đạt Recall@100 = 0,9065 (Dense-STARD), cho thấy các phương pháp hiện có chưa đáp ứng tốt câu hỏi đời thường.
+**Tóm tắt tổng quan.** Bài báo xây dựng ViGPTQA – một hệ thống hỏi đáp tiếng Việt chạy thực tế dựa trên LLM – và đề xuất ViGPT, một LLM đơn ngữ tiếng Việt được tinh chỉnh theo chỉ dẫn (instruction-tuned), cùng biến thể chuyên miền pháp luật ViGPT-Law. Nhóm tác giả công bố thêm các bộ dữ liệu đánh giá mới (ViLawsQA, ViTruthfulQA) và mã nguồn, trọng số mô hình. Kết quả chính: trên ViLawsQA, khi có ngữ cảnh truy xuất, ViGPT-Law-v2 đạt điểm người đánh giá 2,17–2,24/4 (2,52/4 với ngữ cảnh chuẩn), trong khi không có ngữ cảnh chỉ đạt tối đa 1,23/4.
 
-**Bối cảnh và động lực.** Các benchmark truy xuất điều luật trước đó (COLIEE từ đề thi luật sư Nhật; AILA từ bản án Tòa án Tối cao Ấn Độ; CAIL2018 từ phần “Court's Findings” của bản án) dùng truy vấn chính thức, chuyên nghiệp. Người dân thường mô tả sự việc bằng ngôn ngữ đời thường, thiếu thuật ngữ pháp lý và tham chiếu mơ hồ (ví dụ “bị thú cưng của người khác cắn”), trong khi điều luật dùng thuật ngữ chuyên ngành và tiêu chí liên quan dựa trên suy luận pháp lý chứ không chỉ tương đồng văn bản.
+**Bối cảnh và động lực.** Theo bài báo, LLM cho các ngôn ngữ ít tài nguyên như tiếng Việt bị hạn chế do thiếu dữ liệu huấn luyện và bộ đánh giá chuẩn; các nỗ lực đánh giá LLM đa ngôn ngữ chủ yếu tập trung vào tiếng Anh và tiếng Trung. Các mô hình tiếng Việt trước đó (PhoBERT, ViT5, ViDeBERTa…) mạnh ở tác vụ NLP truyền thống nhưng chưa có LLM chỉ dẫn quy mô tỷ tham số dành riêng cho tiếng Việt kèm đánh giá đầy đủ. Khoảng trống bài báo nhắm tới: một LLM tiếng Việt có thể triển khai riêng tư (open-source) và một bộ benchmark cho LLM tiếng Việt.
 
 ## Method
 
-1. **Định nghĩa bài toán:** cho truy vấn q và kho điều luật S, mỗi điều si có biến Bernoulli ri cho biết có liên quan hay không; mục tiêu là lấy đủ tập điều luật liên quan.
-2. **Quy trình gán nhãn ba bước** mô phỏng tam đoạn luận pháp lý: (i) *Recall* — khoanh vùng từ trên xuống: ngành luật → phân ngành → chương liên quan; (ii) *Query Decomposition* — chuyển mô tả đời thường thành các “sự kiện pháp lý” (tiểu đề); (iii) *Filter* — phương pháp “subsumption”: SGolden = (SF1 ∪ SF2 ∪ SF3) ∩ S.
-3. **Gán nhãn:** 16 sinh viên các trường luật lớn; mỗi câu hỏi do hai người gán, chỉ giữ khi hai người thống nhất cùng tập điều luật; cấm dùng mô hình sinh (ChatGPT).
-4. **Baseline:** lexical (QL, BM25); PLM miền mở (Chinese-RoBERTa-WWM, SEED, coCondenser); PLM pháp lý (Lawformer, SAILER) — đều zero-shot; mô hình tinh chỉnh: Dense-CAIL, Dense-STARD (5-fold), Dense-GPT4 (GPT-4 sinh câu hỏi từ điều luật để huấn luyện contrastive), LSI-STARD (phân loại, mỗi điều luật là một nhãn).
-5. **Thực nghiệm RAG:** lấy top-10 điều luật bằng BM25 hoặc Dense-STARD đưa vào prompt cho Baichuan, ChatGLM, ChatGPT.
+Phương pháp gồm ba khối:
+
+1. **Tinh chỉnh ViGPT.** Mô hình nền là VietAI/gpt-j-6B. Dữ liệu chỉ dẫn gồm 52K mẫu Alpaca được dịch sang tiếng Việt bằng gpt-3.5-turbo (ViGPT-v1). Vì dữ liệu dịch có thể bỏ sót đặc thù tiếng Việt, tác giả bổ sung 9.107 mẫu “bản địa”: 1.107 cặp hỏi-đáp do người Việt viết (lịch sử, địa lý, văn học), 3.000 mẫu từ ViNewsQA và 5.000 mẫu hỏi-đáp tóm lược tổng hợp về pháp luật (ViGPT-v2). Huấn luyện dùng Hugging Face với FSDP, mixed precision và LoRA.
+2. **Thích nghi miền pháp luật (ViGPT-Law).** Thu thập văn bản pháp luật Việt Nam, loại trùng và loại văn bản dưới 100 token, còn 252.425 văn bản; tiếp tục tiền huấn luyện (next-word prediction) trên kho này. 5.000 cặp hỏi-đáp tổng hợp được sinh bằng gpt-3.5-turbo từ 1.000 văn bản cắt thành 5.000 đoạn 4.000 ký tự. Tinh chỉnh tiếp với Alpaca dịch (ViGPT-Law-v1) hoặc Alpaca + 5.000 mẫu pháp luật (ViGPT-Law-v2).
+3. **Hệ thống ViGPTQA.** Một module nhúng (embedding) tìm văn bản luật gần nhất trong cơ sở dữ liệu vector, ghép với câu hỏi rồi đưa vào ViGPT để sinh câu trả lời có dẫn chiếu.
 
 ```mermaid
 flowchart LR
-    Q["Câu hỏi đời thường từ 12348"] --> AN["Ẩn danh hóa thủ công"]
-    L["Luật còn hiệu lực, tách theo điều"] --> K[("55.348 điều luật")]
-    AN --> S1["Bước 1: Recall"]
-    S1 --> S2["Bước 2: Query Decomposition"]
-    S2 --> S3["Bước 3: Filter"]
-    K --> S1
-    S3 --> G["Hai người gán đồng thuận: STARD 1.543 truy vấn"]
-    G --> B1["Lexical: QL, BM25"]
-    G --> B2["PLM zero-shot: miền mở và pháp lý"]
-    G --> B3["Tinh chỉnh: Dense-STARD, Dense-GPT4, Dense-CAIL, LSI"]
-    B1 --> EV["Recall@k, MRR@k"]
-    B2 --> EV
-    B3 --> EV
-    B3 --> RAG["RAG: JecQA, CAIL2018"]
+    A["Alpaca 52K dịch sang tiếng Việt"] --> SFT
+    B["9.107 mẫu bản địa: người viết, ViNewsQA, QA luật tổng hợp"] --> SFT
+    L["252.425 văn bản luật"] --> CPT["Tiếp tục tiền huấn luyện gpt-j-6B"]
+    CPT["Tiếp tục tiền huấn luyện gpt-j-6B"] --> SFT["Supervised fine-tuning + LoRA"]
+    SFT --> M["ViGPT / ViGPT-Law"]
+    Q["Câu hỏi người dùng"] --> E["Embedding: vietnamese-sbert / ada-002"]
+    E --> VDB[("CSDL vector văn bản luật")]
+    VDB --> C["Văn bản gần nhất + câu hỏi"]
+    C --> M
+    M --> R["Câu trả lời kèm văn bản tham chiếu"]
 ```
 
 ## Dataset
 
-STARD: 1.543 truy vấn (độ dài trung bình 27,3 từ) và 55.348 điều luật ứng viên (trung bình khoảng 120 từ) lấy từ các văn bản pháp luật và giải thích tư pháp còn hiệu lực của Trung Quốc; 1.445 điều luật liên quan ít nhất một truy vấn, tổng 2.717 lượt xuất hiện, trung bình 1,76 điều liên quan mỗi truy vấn. 843/1.543 truy vấn chỉ có một điều liên quan; 45% cần nhiều điều. Độ đồng thuận giữa hai người gán: Cohen's Kappa = 0,5312 (mức vừa phải). Giấy phép MIT.
+- **ViLawsQA** (mới): 1.020 bộ ngữ cảnh–câu hỏi–câu trả lời thuộc 27 lĩnh vực luật, lấy từ trang thông tin pháp luật chính thức.
+- **ViTruthfulQA** (mới): câu hỏi về lịch sử, địa lý, văn học Việt Nam, được lọc đối kháng qua gpt-3.5-turbo.
+- MRC trích xuất: ViCoQA, ViNewsQA, ViWikiQA, ViQuAD 2.0; NER: PhoNER (100 mẫu huấn luyện); Vicuna-Instructions-80 bản dịch.
+- Bài báo **không** công bố kích thước tập test chi tiết cho từng bộ MRC và không có dữ liệu thủ tục hành chính.
 
 ## Evaluation
 
-Recall@k (k = 5…200) và MRR@k (k = 3, 5, 10). RAG: độ chính xác trên JecQA (26.365 câu trắc nghiệm nhiều lựa chọn, hai nhóm KD và CA) và tác vụ dự đoán tội danh của CAIL2018.
+ROUGE-1 (tokenizer tiếng Việt và bản “Non-Unicode” của thư viện rouge-score), BLEU-1, BLEU-4; F1 và Similarity (vietnamese-sbert) cho MRC; F1 cho NER; đánh giá người (3 người chú thích, thang Likert 0–4 trên 200 mẫu); điểm do GPT-4 chấm trên Vicuna-80. Baseline gồm vi_mrclarge, gpt-3.5-turbo, BingAI, vilm/vietcuna-3b, VietAI/gpt-neo-1.3B, VietAI/gpt-j-6B và các mô hình NER (PhoBERT, ViT5, ViDeBERTa…).
 
 ## Results
 
-- **Zero-shot:** BM25 R@100 = 0,6493, QL 0,6515; các PLM pháp lý zero-shot thấp hơn (SAILER R@100 = 0,5674, Lawformer 0,5478). Tác giả kết luận lexical vẫn là baseline rất mạnh so với PLM zero-shot.
-- **Tinh chỉnh:** Dense-STARD R@100 = 0,9065, R@200 = 0,9531, MRR@10 = 0,4724; Dense-GPT4 R@100 = 0,7984; Dense-CAIL chỉ 0,3281 và LSI-STARD 0,3410.
-- **RAG:** dùng điều luật truy xuất giúp LLM trên JecQA (ví dụ Baichuan JQA-KD 0,266 → 0,291 với Dense-STARD; ChatGLM 0,194 → 0,237); với ChatGPT, BM25 lại tốt hơn Dense-STARD ở JQA-KD (0,293 so với 0,252), cho thấy mỗi LLM ưa một kiểu retriever. Trên CAIL2018, Baichuan không RAG đạt 0,850, cao hơn khi có RAG — tác giả cho rằng do mô hình đã thấy dữ liệu này khi tiền huấn luyện.
+- **ViLawsQA không ngữ cảnh:** gpt-3.5-turbo đạt điểm người cao nhất 2,11/4; tốt nhất trong các mô hình của tác giả là ViGPT-Law-v2 với 1,23/4. Tác giả nhận định phần lớn câu trả lời khi không có ngữ cảnh “không hữu ích” với người dùng.
+- **Có ngữ cảnh:** ViGPT-Law-v2 + vietnamese-sbert đạt ROUGE-1 42,10, điểm người 2,17; + embedding-ada-002 đạt 43,22 và 2,24; với ngữ cảnh chuẩn đạt 45,33 và 2,52. vi_mrclarge với ngữ cảnh chuẩn chỉ đạt ROUGE-1 14,85.
+- **MRC:** ViGPT-v2 (huấn luyện đủ) tiệm cận vi_mrclarge trên ba bộ và vượt trên ViWikiQA (F1 51,55 so với 54,15 nhưng Similarity 63,25 so với 61,52; điểm người 2,67 so với 2,73 — tức không vượt ở mọi chỉ số như tác giả viết).
+- **NER few-shot (100 mẫu):** ViGPT-v1 F1 69,31, thấp xa các mô hình huấn luyện đầy đủ (ViDeBERTa 95,3).
+- **ViTruthfulQA:** ViGPT-v2 đạt 25,45 điểm người, so với gpt-3.5-turbo 29,91 và BingAI (có Internet) 74,08.
+- Không có thí nghiệm ablation riêng cho từng nguồn dữ liệu; so sánh v1/v2 đóng vai trò ablation gián tiếp.
 
 **Điểm mạnh.**
 
-- Truy vấn thật của người dân, khác biệt rõ với benchmark chính thức: mô hình tinh chỉnh trên CAIL2018 gần như không chuyển sang được.
-- Quy trình gán nhãn ba bước có cơ sở lập luận pháp lý và được mô tả đủ để tái sử dụng; dữ liệu, mô hình, mã công khai.
-- Phân tích baseline rộng, kết luận rõ: lexical là baseline mạnh; mô hình huấn luyện trong miền vượt trội.
+- Mô tả quy trình đầy đủ từ dữ liệu, tiền huấn luyện miền đến hệ thống triển khai thực tế; công bố mã, dữ liệu, trọng số.
+- Chứng minh định lượng vai trò của truy xuất ngữ cảnh: điểm người tăng từ 1,23 lên 2,17–2,52 khi có ngữ cảnh.
+- Chỉ ra vấn đề đo lường đặc thù tiếng Việt: thư viện ROUGE phổ biến loại bỏ ký tự Unicode, làm sai lệch điểm số.
 
 ## Limitations
 
-**(a) Bài báo thừa nhận:** bộ dữ liệu gắn với hệ thống pháp luật Trung Quốc nên không áp dụng trực tiếp cho hệ thống khác; muốn mở rộng phải xây và gán nhãn bộ dữ liệu mới; tác giả cam kết cập nhật định kỳ vì luật thay đổi.
+**(a) Bài báo thừa nhận:** dữ liệu chỉ dẫn tiếng Việt còn chất lượng thấp, không đủ để một mô hình xử lý tốt nhiều tác vụ; tính trung thực còn cách xa mức tuyệt đối; cần thêm thí nghiệm về công bằng và thiên kiến; khoảng cách lớn với gpt-3.5-turbo do chênh lệch quy mô (6B so với 175B).
 
-**(b) Quan sát:** Kappa 0,53 chỉ ở mức vừa phải và các câu hỏi bất đồng bị loại, nên tập dữ liệu thiên về các ca có đồng thuận cao; Dense-STARD chỉ huấn luyện trên hơn một nghìn cặp nên Recall vẫn dưới 1; thực nghiệm RAG gồm các LLM đời cũ và chưa kiểm tra chất lượng trích dẫn điều luật trong câu trả lời; đánh giá chỉ trên hai tập ngoài miền (JecQA, CAIL2018).
+**(b) Quan sát từ kết quả:** cải thiện không đồng đều — ViGPT-v2 kém vi_mrclarge về F1 trên ba bộ MRC; dữ liệu hỏi-đáp pháp luật là tổng hợp bằng gpt-3.5-turbo, có thể mang lỗi của mô hình sinh; đánh giá người chỉ trên 200 mẫu, bài không báo cáo độ đồng thuận giữa người chấm. Bài **không đề cập** đến kiểm chứng số liệu sau sinh, độ trễ hay chi phí triển khai, và không đánh giá trên văn bản thủ tục hành chính.
 
 ## Relevance to our topic
 
-Đây là bài sát nhất với bài toán của Sys_3_4: câu hỏi đời thường của người dân → điều luật trong hệ thống luật thành văn (civil law), đơn vị truy xuất là “điều”. Kết quả “lexical mạnh hơn PLM zero-shot, còn mô hình dense tinh chỉnh trong miền vượt xa” ủng hộ kiến trúc kép: truy hồi từ vựng có trọng số cho Strict Engine và embedding được tinh chỉnh cho Friendly Engine. Bước Query Decomposition (từ sự việc đời thường sang “sự kiện pháp lý”) tương ứng với bước chuẩn hóa/làm rõ câu hỏi trước khi khớp thủ tục. Phát hiện “mỗi LLM ưa một retriever khác nhau” cho thấy cần đánh giá retriever cùng với bộ sinh thay vì tách rời.
-
-**Kết luận.** STARD chứng minh truy xuất điều luật từ câu hỏi không chuyên vẫn là bài toán chưa giải xong (Recall@100 tối đa 0,9065) và cung cấp quy trình gán nhãn có thể áp dụng cho các hệ thống civil law khác. Nhóm có thể mượn quy trình này để xây bộ đánh giá cho thủ tục hành chính Việt Nam.
+LLM tiếng Việt có truy hồi cho hỏi đáp, kể cả pháp luật. Bài cho thấy không có ngữ cảnh thì câu trả lời phần lớn vô dụng; điều này ủng hộ việc bài 1 chỉ trả lời từ bản ghi thủ tục. Nhưng ViGPTQA không đo việc từ chối hay hỏi lại, và câu hỏi không phải thư thật của người dân.
 
 ## Possible improvement
 
-- Xây bộ đánh giá kiểu STARD cho 1.350 thủ tục hành chính: câu hỏi người dân ẩn danh, gán nhãn thủ tục/điều khoản liên quan theo ba bước, hai người gán và báo cáo Kappa.
-- Báo cáo Recall@k và MRR@k cho cả Strict (IDF âm tiết) và Friendly (dense + RRF + reranker), kèm baseline BM25 để so sánh công bằng.
-- Dùng dữ liệu tổng hợp từ LLM (như Dense-GPT4) để tinh chỉnh embedding khi thiếu nhãn người, sau đó kiểm chứng trên tập nhãn tay.
+- Đánh giá trên câu hỏi thật có tỉ lệ ngoài phạm vi cao, như bài 1 làm.
+- Khi dùng chỉ số tự động cho tiếng Việt, giữ dấu khi tách từ (theo cảnh báo của bài).

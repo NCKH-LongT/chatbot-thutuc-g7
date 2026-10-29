@@ -1,82 +1,77 @@
-# Paper 09 Summary
+# Paper 09 Summary — BGEM3
+
+Nhóm khuôn B2: **model / phương pháp AI**. Kiểm chứng 25/10/2026: các con số trong tệp đã đối chiếu với PDF arXiv:2402.03216 (tải 25/10/2026). Phần nội dung bài gốc chép từ tóm tắt cũ (docs/research paper/paper_summaries/paper_19.md); hai mục cuối viết lại cho bài 1.
 
 ## Citation
 
-Tên bài: Hallucination-Free? Assessing the Reliability of Leading AI Legal Research Tools
-Tác giả: Varun Magesh, Faiz Surani, Matthew Dahl, Mirac Suzgun, Christopher D. Manning, Daniel E. Ho (Stanford University; Yale University)
-Năm: 2025
-Nguồn: Journal of Empirical Legal Studies, Vol. 22, No. 2 (2025), trang 216–242 (Wiley/Cornell Law School) — tạp chí có bình duyệt, open access
-DOI/Link: https://doi.org/10.1111/jels.12413 (bản preprint: https://arxiv.org/abs/2405.20362)
+Tên bài: M3-Embedding: Multi-Linguality, Multi-Functionality, Multi-Granularity Text Embeddings Through Self-Knowledge Distillation
+Tác giả: Jianlv Chen, Shitao Xiao, Peitian Zhang, Kun Luo, Defu Lian, Zheng Liu (BAAI; Đại học Khoa học và Công nghệ Trung Quốc)
+Năm: 2024
+Nguồn: Findings of the Association for Computational Linguistics: ACL 2024, trang 2318–2335 — hội nghị hàng đầu về NLP, có bình duyệt
+DOI/Link: https://aclanthology.org/2024.findings-acl.137/ (DOI: 10.18653/v1/2024.findings-acl.137)
 
 ## Problem
 
-**Tóm tắt tổng quan.** Bài báo là đánh giá thực nghiệm *có đăng ký trước* (preregistered) đầu tiên đối với các công cụ nghiên cứu pháp lý thương mại dựa trên RAG: Lexis+ AI (LexisNexis), Westlaw AI-Assisted Research và Ask Practical Law AI (Thomson Reuters), so với GPT-4. Tác giả đề xuất khung phân loại ảo giác theo hai chiều *tính đúng* (correctness) và *tính có căn cứ* (groundedness). Kết luận: các công cụ RAG thương mại ít ảo giác hơn GPT-4 nhưng vẫn ảo giác khoảng 17%–33% số câu hỏi, trái với tuyên bố “không ảo giác” của nhà cung cấp.
+**Tóm tắt tổng quan.** Bài báo giới thiệu M3-Embedding (mô hình BGE-M3), một mô hình embedding đa ngôn ngữ (hơn 100 ngôn ngữ), đa chức năng (dense, sparse/lexical và multi-vector trong cùng một mô hình) và đa độ dài (từ câu đến tài liệu 8.192 token). Đóng góp kỹ thuật: chưng cất tri thức tự thân (self-knowledge distillation), chiến lược batching hiệu quả và bộ dữ liệu huấn luyện được tuyển chọn. Mô hình đạt kết quả tốt nhất lúc công bố trên MIRACL, MKQA và truy xuất tài liệu dài.
 
-**Bối cảnh và động lực.** Các nhà cung cấp pháp lý quảng bá RAG là giải pháp “gần như loại bỏ” ảo giác, nhưng không công bố bằng chứng; thuật ngữ “hallucination” cũng được dùng không thống nhất. Nghiên cứu trước (Dahl và cộng sự, 2024) cho thấy LLM tổng quát ảo giác 58%–82% với câu hỏi pháp lý, nhưng chưa xét công cụ chuyên dụng có RAG. Theo tác giả, RAG pháp lý khó vì: truy xuất cần suy luận pháp lý, mức độ liên quan phụ thuộc thẩm quyền và thời điểm, và việc sinh văn bản đòi hỏi tổng hợp phức tạp.
+**Bối cảnh và động lực.** Tác giả nêu ba hạn chế của embedding hiện có: phần lớn chỉ dành cho tiếng Anh; thường chỉ huấn luyện cho một kiểu truy xuất, trong khi hệ thống IR thực tế kết hợp nhiều phương pháp; và khó huấn luyện bộ truy xuất tài liệu dài do chi phí cao nên đa số mô hình chỉ hỗ trợ đầu vào ngắn.
 
 ## Method
 
-1. **Khung đánh giá:** *Correct* (đúng và liên quan), *Incorrect* (có thông tin sai), *Refusal* (từ chối/không liên quan). Với câu đúng, xét *Grounded* (dẫn chiếu hợp lệ), *Misgrounded* (dẫn nguồn không hỗ trợ hoặc không áp dụng), *Ungrounded* (không dẫn). **Ảo giác** = sai hoặc dẫn sai nguồn; **chính xác** = đúng và có căn cứ; **không đầy đủ** = từ chối hoặc không dẫn nguồn.
-2. **Bộ truy vấn (202 câu, đăng ký trước trên OSF ngày 22/3/2024):** nghiên cứu pháp lý tổng quát (80), theo thẩm quyền/thời điểm (70), tiền đề sai (22), hỏi sự kiện (30); gồm 20 câu Rule QA của LegalBench và 20 câu ôn thi luật sư BARBRI.
-3. **Thực thi:** dán thủ công vào giao diện từng công cụ; GPT-4 (gpt-4-turbo-2024-04-09) chạy “sách đóng” với prompt yêu cầu trích dẫn án lệ.
-4. **Chấm điểm thủ công** bởi người có chuyên môn luật; người chấm thứ tư độc lập chấm lại 48 câu.
-5. **Phân loại nguyên nhân lỗi:** truy xuất ngây thơ (naive retrieval), nguồn không áp dụng, lỗi suy luận, chiều theo người dùng (sycophancy).
+1. **Ba kiểu truy xuất từ cùng một bộ mã hóa:** dense dùng embedding chuẩn hóa của token [CLS] (tích vô hướng); lexical/sparse tính trọng số từng token qua Relu(Wlex^T H), điểm là tổng tích trọng số các token trùng nhau; multi-vector theo kiểu ColBERT (late-interaction) trên toàn bộ vector đầu ra.
+2. **Truy xuất lai:** điểm xếp hạng srank = w1·sdense + w2·slex + w3·smul; trọng số tùy bài toán (ví dụ w1=1, w2=0,3, w3=0 cho Dense+Sparse trên MIRACL).
+3. **Self-knowledge distillation:** điểm tích hợp sinter = w1·sdense + w2·slex + w3·smul làm “giáo viên” cho từng kiểu truy xuất; hàm mất mát cuối là tổ hợp tuyến tính của InfoNCE và mất mát chưng cất, nhằm giảm xung đột giữa các mục tiêu.
+4. **Huấn luyện nhiều giai đoạn:** XLM-RoBERTa điều chỉnh bằng RetroMAE; tiền huấn luyện trên 1,2 tỷ cặp văn bản không nhãn (194 ngôn ngữ, 2.655 tương ứng đa ngôn ngữ) chỉ cho dense; sau đó tinh chỉnh với dữ liệu có nhãn (tiếng Anh, tiếng Trung, Mr.TyDi/MIRACL) và dữ liệu tổng hợp tài liệu dài (GPT-3.5 sinh câu hỏi), có hard negative theo ANCE.
+5. **Efficient batching:** nhóm dữ liệu theo độ dài, chia lô con kèm gradient checkpointing, broadcast embedding giữa các GPU; với văn bản 8.192 token, kích thước batch tăng hơn 20 lần.
+6. **MCLS:** chèn nhiều token [CLS] vào tài liệu dài khi suy luận và lấy trung bình, không cần huấn luyện thêm.
 
 ```mermaid
 flowchart LR
-    Q["202 truy vấn đăng ký trước: 4 nhóm"] --> T1["Lexis+ AI"]
-    Q --> T2["Westlaw AI-AR"]
-    Q --> T3["Ask Practical Law AI"]
-    Q --> T4["GPT-4 sách đóng"]
-    T1 --> H["Chấm thủ công: Correct/Incorrect/Refusal × Grounded/Misgrounded/Ungrounded"]
-    T2 --> H["Chấm thủ công: Correct/Incorrect/Refusal × Grounded/Misgrounded/Ungrounded"]
-    T3 --> H["Chấm thủ công: Correct/Incorrect/Refusal × Grounded/Misgrounded/Ungrounded"]
-    T4 --> H["Chấm thủ công: Correct/Incorrect/Refusal × Grounded/Misgrounded/Ungrounded"]
-    H --> L{"Nhãn cuối"}
-    L --> A["Chính xác"]
-    L --> I["Không đầy đủ"]
-    L --> HA["Ảo giác"]
-    HA["Ảo giác"] --> C["Phân loại nguyên nhân lỗi"]
+    U["1,2 tỷ cặp không nhãn, 194 ngôn ngữ"] --> P["Tiền huấn luyện: dense, RetroMAE + XLM-R"]
+    P --> FT["Tinh chỉnh với self-knowledge distillation"]
+    LB["Dữ liệu có nhãn EN, ZH, Mr.TyDi, MIRACL"] --> FT
+    SY["Dữ liệu tổng hợp tài liệu dài"] --> FT
+    FT --> M["M3-Embedding"]
+    M --> D["Dense"]
+    M --> S["Sparse"]
+    M --> V["Multi-vector"]
+    D --> H["Điểm lai w1, w2, w3"]
+    S --> H
+    V --> H
+    H --> EV["MIRACL, MKQA, MLDR, NarrativeQA"]
 ```
 
 ## Dataset
 
-202 truy vấn pháp lý Hoa Kỳ do nhóm tác giả xây dựng và đăng ký trước. Bài **không** dùng kho tài liệu riêng vì các công cụ là hệ thống đóng truy xuất từ cơ sở dữ liệu của nhà cung cấp.
+Huấn luyện: 1,2 tỷ cặp không nhãn (Wikipedia, S2ORC, xP3, mC4, CC-News, MTP và câu song song NLLB, CCMatrix); dữ liệu có nhãn gồm 8 bộ tiếng Anh (HotpotQA, TriviaQA, NQ, MS MARCO, COLIEE, PubMedQA, SQuAD, NLI), 7 bộ tiếng Trung (trong đó có LawGPT, LeCaRDv2), cùng Mr.TyDi và MIRACL; dữ liệu tổng hợp MultiLongDoc. Đánh giá: MIRACL (18 ngôn ngữ), MKQA (25 ngôn ngữ không phải tiếng Anh, truy xuất trên Wikipedia tiếng Anh), MLDR (tài liệu dài đa ngôn ngữ) và NarrativeQA (tiếng Anh).
 
 ## Evaluation
 
-Tỷ lệ chính xác, không đầy đủ và ảo giác (kèm khoảng tin cậy 95%), tỷ lệ ảo giác khi có trả lời, độ dài câu trả lời, và độ tin cậy giữa người chấm (Cohen's kappa).
+nDCG@10 cho MIRACL, MLDR và NarrativeQA (Recall@100 phụ); Recall@100 cho MKQA. Baseline: BM25 (dùng cùng tokenizer XLM-R), mDPR, mContriever, mE5-large, E5-mistral-7b, OpenAI text-embedding-3-large và ada-002, jina-embeddings-v2-base-en. Multi-vector dùng để rerank top-200 từ dense.
 
 ## Results
 
-- **Ảo giác:** Lexis+ AI và Ask Practical Law AI ảo giác ở hơn 1/6 số câu; Westlaw AI-AR khoảng 1/3. Các công cụ đều ít ảo giác hơn GPT-4 (tỷ lệ của GPT-4 thể hiện trên biểu đồ, thân bài không nêu số).
-- **Chính xác:** Lexis+ AI 65%, Westlaw 41–42%, Practical Law 19%.
-- **Không đầy đủ:** 18% (Lexis+ AI), 25% (Westlaw), 62% (Practical Law — do kho tài liệu hẹp).
-- **Độ dài trả lời (bỏ câu từ chối):** Westlaw trung bình 350 từ, Lexis+ AI 219 từ, Practical Law 175 từ; câu dài hơn có nhiều mệnh đề có thể sai hơn.
-- **Độ tin cậy chấm điểm:** Cohen's kappa 0,77; đồng thuận 85,4%.
-- **Nguyên nhân lỗi (Bảng 6, tỷ lệ trong các câu ảo giác):** lỗi suy luận chiếm 0,61 ở Westlaw; truy xuất ngây thơ 0,47 ở Lexis+ AI.
-- **Dạng lỗi điển hình:** hiểu sai phán quyết, nhầm lập luận của đương sự với kết luận của tòa, không tôn trọng thứ bậc hiệu lực (dẫn án đã bị hủy).
+- **MIRACL (nDCG@10, trung bình):** BM25 31,9; mE5-large 66,6; M3 Dense 69,2, Sparse 53,9, Multi-vec 70,5, Dense+Sparse 70,4, All 71,5.
+- **MKQA (Recall@100, trung bình):** BM25 39,9; mE5-large 70,9; M3 Dense 75,1, All 75,5. Với tiếng Việt: BM25 46,6, mE5-large 75,4, M3 Dense 76,6, All 76,9. Sparse yếu hơn ở bài toán xuyên ngôn ngữ vì truy vấn và đoạn văn khác ngôn ngữ nên ít từ trùng.
+- **MLDR (nDCG@10, trung bình):** Dense 52,5; Sparse 62,2; Multi-vec 57,6; Dense+Sparse 64,8; All 65,0 — sparse tốt hơn dense khoảng 10 điểm. NarrativeQA: Dense 48,7, Sparse 57,5, All 61,7.
+- **Ablation (MIRACL dev):** bỏ self-knowledge distillation làm sparse giảm từ 53,9 xuống 36,7 (dense 69,2 → 68,7; multi-vec 70,5 → 69,3). Huấn luyện nhiều giai đoạn: chỉ fine-tune 60,5; RetroMAE + fine-tune 66,1; RetroMAE + dữ liệu không nhãn + fine-tune 69,2. MCLS nâng dense không tinh chỉnh tài liệu dài từ 41,2 lên 45,0.
 
 **Điểm mạnh.**
 
-- Thiết kế nghiêm ngặt: đăng ký trước để tránh thiên lệch chọn câu hỏi, chấm điểm có kiểm tra độ đồng thuận, báo cáo khoảng tin cậy.
-- Khung correctness × groundedness phân biệt rõ “trích dẫn có thật” với “trích dẫn thực sự hỗ trợ câu trả lời”.
-- Phân loại nguyên nhân lỗi đặc thù pháp lý (nguồn không áp dụng, thứ bậc hiệu lực) mà các phân tích RAG tổng quát chưa có.
+- Một mô hình phục vụ đồng thời dense, sparse và multi-vector, nên truy xuất lai không cần nhiều mô hình riêng; công bố mô hình, mã và dữ liệu.
+- Phân tích rõ đóng góp của từng chức năng (sparse mạnh ở tài liệu dài, dense mạnh ở đa ngôn ngữ, kết hợp tốt nhất) và từng thành phần huấn luyện bằng ablation.
+- Có kết quả riêng cho tiếng Việt trong MKQA và hỗ trợ đầu vào 8.192 token, phù hợp văn bản quy phạm dài.
 
 ## Limitations
 
-**(a) Bài báo thừa nhận:** chỉ ba sản phẩm thương mại; kết quả là ảnh chụp tại một thời điểm và hệ thống thay đổi trong lúc nghiên cứu; có nguy cơ rò rỉ dữ liệu kiểm tra; 202 câu là cỡ mẫu nhỏ; groundedness có thể là phổ liên tục; bộ câu hỏi cố ý khó nên tỷ lệ ảo giác không phải ước lượng của tổng thể; chưa đánh giá các tác vụ soạn thảo.
+**(a) Bài báo thừa nhận:** khả năng tổng quát hóa sang tập dữ liệu và tình huống thực tế khác ngoài MIRACL/MKQA cần được kiểm chứng thêm; xử lý tài liệu cực dài (gần hoặc vượt 8.192 token) tốn tài nguyên và chưa được nghiên cứu đủ; tuyên bố hỗ trợ hơn 100 ngôn ngữ nhưng chưa phân tích kỹ chênh lệch hiệu năng giữa các ngôn ngữ; dữ liệu phân bố không đều nên hiệu năng có thể khác nhau giữa các ngôn ngữ.
 
-**(b) Quan sát:** chỉ áp dụng cho luật Hoa Kỳ (thông luật); hệ thống đóng nên không phân tích được từng thành phần. Bài **không** đề xuất giải pháp kỹ thuật giảm ảo giác.
+**(b) Quan sát:** không đánh giá trên văn bản pháp lý hay hành chính (chỉ MIRACL, MKQA, MLDR, NarrativeQA); trọng số w1–w3 chọn thủ công theo từng benchmark; multi-vector chi phí cao nên chỉ dùng rerank top-200; không đo độ trễ và chi phí lưu trữ cho từng chế độ.
 
 ## Relevance to our topic
 
-Bài cung cấp bằng chứng mạnh, đã qua bình duyệt, rằng *RAG không đủ để loại bỏ ảo giác* trong miền pháp lý — đây chính là lý do Sys_3_4 tách Strict Engine (trả lời bằng code, nguyên văn từ cơ sở dữ liệu) khỏi phần sinh của LLM và đặt verifier sau mọi câu trả lời sinh. Khung correctness/groundedness có thể dùng trực tiếp để chấm câu trả lời của Friendly Engine.
-
-**Kết luận.** Các công cụ nghiên cứu pháp lý dùng RAG giảm ảo giác so với GPT-4 nhưng chưa “không ảo giác”, với tỷ lệ 17%–33% và khác biệt lớn giữa các hệ thống. Người dùng vẫn phải kiểm chứng từng mệnh đề và trích dẫn. Tác giả kêu gọi đánh giá công khai, độc lập và minh bạch cho AI pháp lý.
+BGE-M3 là embedding dùng để lấy ứng viên cho phương án B và baseline RAG của bài 1. Bài gốc có kết quả tốt trên benchmark đa ngôn ngữ, nhưng không đo trên câu hỏi thủ tục hành chính; bài 1 đo top-1/top-3 trên câu hỏi thật.
 
 ## Possible improvement
 
-- Áp dụng nhãn Correct/Misgrounded/Ungrounded và quy trình chấm hai người (kèm kappa) cho bộ HOLDOUT của nhóm.
-- Thêm nhóm câu hỏi “tiền đề sai” và “hiệu lực theo thời điểm” (thủ tục đã thay thế, mức phí đã thay đổi) — hai loại bài báo cho thấy dễ gây lỗi.
-- Đăng ký trước bộ câu hỏi đánh giá trước khi chạy thực nghiệm để tăng độ tin cậy.
+- So sánh chế độ dense với sparse/multi-vector của BGE-M3 trên bộ dev (bài 1 chỉ dùng dense).

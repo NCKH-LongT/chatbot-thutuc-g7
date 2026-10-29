@@ -1,319 +1,130 @@
-# Paper List (Danh mục 33 Bài báo Khoa học theo 3 Nhóm Tiêu chí)
+# Danh sách tài liệu cho bài 1 (đã kiểm / chờ kiểm)
 
-Toàn bộ tài liệu học thuật được phân loại theo 3 tiêu chí quy định:
-- **Nhóm 1:** Bài báo liên quan trực tiếp — pháp lý, hành chính công, an toàn/quyền riêng tư khu vực công (Tối thiểu 5 bài - Hiện có: 12 bài)
-- **Nhóm 2:** Bài báo về model AI hoặc phương pháp AI (Tối thiểu 3 bài - Hiện có: 19 bài)
-- **Nhóm 3:** Bài báo về domain ứng dụng — rủi ro ảo giác pháp lý và kiểm soát hội thoại (Tối thiểu 2 bài - Hiện có: 2 bài)
+Quy tắc (constraints.md C1.3): **chỉ cite bài có trạng thái "Đã kiểm"**, và chỉ lấy số của một bài sau khi đã đọc đúng bảng chứa số đó (ghi số bảng hoặc trang vào tệp tóm tắt).
 
-**Nguồn công bố:** 29/33 bài đã công bố tại hội nghị/tạp chí có bình duyệt (ACL/EMNLP/NAACL/EACL, ICLR, NeurIPS, IEEE S&P, ACM AISec, SOSP, ICAIL, IC3K, IEEE Access, Journal of Legal Analysis, Journal of Empirical Legal Studies, workshop KDD/EMNLP). 4 bài là preprint/báo cáo kỹ thuật được giữ lại có ghi chú rõ vì là công trình gốc được trích dẫn rộng rãi: Paper 08 (LegalBench-RAG), Paper 18 (CRAG), Paper 22 (Qwen2.5 Technical Report), Paper 28 (Constitutional AI).
+- **PDF**: đọc trang đầu của PDF trong `docs/research paper/` của repo gốc (tên, tác giả, mã arXiv in trên trang).
+- **Web**: kiểm trên ACL Anthology, arXiv hoặc trang của nhà xuất bản ngày 25/10/2026.
+- **Chờ**: mới thấy qua tìm kiếm, chưa mở trang gốc.
 
-Mọi tóm tắt chi tiết (`paper_summaries/paper_XX.md`) được viết lại dựa trên toàn văn PDF lưu trong `docs/research paper/`; mọi link dưới đây đã được kiểm tra chéo với bài báo.
+Ngày lập: 25/10/2026.
 
----
+## 0. Tệp tóm tắt theo khuôn (paper_summaries/paper_NN.md)
 
-## PHẦN I: BÀI BÁO LIÊN QUAN TRỰC TIẾP (PAPERS 01 - 12)
+| Tệp | Khoá | Nhóm khuôn B2 |
+|---|---|---|
+| paper_01 | PhamDuy2023 | trực tiếp |
+| paper_02 | Larson2019 | trực tiếp |
+| paper_03 | Rajpurkar2018 | trực tiếp |
+| paper_04 | Kamath2020 | trực tiếp |
+| paper_05 | Aliannejadi2019 | trực tiếp |
+| paper_06 | Wen2025 | trực tiếp |
+| paper_07 | Rebedea2023 | trực tiếp |
+| paper_08 | Qwen3 (+ qwen3inst) | model/phương pháp |
+| paper_09 | BGEM3 | model/phương pháp |
+| paper_10 | CRAG2024 | model/phương pháp |
+| paper_11 | SelfRAG2024 | model/phương pháp |
+| paper_12 | ViGPTQA2023 | lĩnh vực |
+| paper_13 | Hien2025 | lĩnh vực |
+| paper_14 | LegalCheck2026 | lĩnh vực |
+| paper_15 | GovAIPipe2026 | lĩnh vực |
+| paper_16 | GripOnLLMs2026 | lĩnh vực |
+| paper_17 | GuidaPA2026 (khoá bib: jimenez2026) | lĩnh vực |
+| paper_18 | Geifman2017 (khoá bib: geifman2017) | trực tiếp |
+| paper_19 | Gilardi2023 (khoá bib: gilardi2023) | phương pháp đánh giá |
+| paper_20 | Lewis2020 (khoá bib: lewis2020) | model/phương pháp |
+| paper_21 | Dwork2015 (dwork2015) | phương pháp đánh giá |
+| paper_22 | Brodersen2010 (brodersen2010) | phương pháp đánh giá |
+| paper_23 | Wilson1927 (wilson1927) | phương pháp đánh giá |
+| paper_24 | McNemar1947 (mcnemar1947) | phương pháp đánh giá |
+| paper_25 | Cohen1960 (cohen1960) | phương pháp đánh giá |
+| paper_26 | HF-dvc (hfdvc) | tài nguyên dữ liệu |
+| paper_27 | HF-mps (hfmps) | tài nguyên dữ liệu |
+| paper_28 | DVC (dvcportal) | tài nguyên dữ liệu |
+| paper_29 | bge-reranker-v2-m3 (bgererank) | model/phương pháp |
 
-### Paper 01: ViGPTQA – State-of-the-Art LLMs for Vietnamese Question Answering: System Overview, Core Models Training, and Evaluations
-- **Tác giả:** Minh-Thuan Nguyen, Khanh-Tung Tran, Vincent Nguyen, Xuan-Son Vu
-- **Năm & Nguồn:** 2023 | *EMNLP 2023 Industry*
-- **DOI / Link:** https://aclanthology.org/2023.emnlp-industry.70/
-- **Tệp tóm tắt:** `paper_summaries/paper_01.md`
-- **Phương pháp & Dữ liệu:** Tinh chỉnh chỉ dẫn LLM tiếng Việt (ViGPT) + RAG | ViLawsQA (1.020 bộ, 27 lĩnh vực luật), ViTruthfulQA, MRC tiếng Việt
-- **Đóng góp chính:** ViGPT-Law-v2 + ngữ cảnh chuẩn đạt ROUGE-1 45,33, điểm người 2,52; không có ngữ cảnh thì câu trả lời phần lớn không hữu ích.
-- **Ý nghĩa với đề tài:** Khẳng định cần ngữ cảnh truy hồi khi hỏi đáp pháp luật tiếng Việt; định hướng chọn LLM hỗ trợ tốt tiếng Việt.
+Đủ khuôn B2: 8 trực tiếp (≥5, gồm Geifman2017), 6 model/phương pháp (≥3, gồm Lewis2020 và bge-reranker-v2-m3), 6 lĩnh vực (≥2); thêm 7 tệp về phương pháp đánh giá và 3 tệp về tài nguyên dữ liệu (28/10). PhamDuy2023 đọc lại từ PDF bản tác giả (users.soict.hust.edu.vn) ngày 25/10/2026.
 
-### Paper 02: Integrating Information Retrieval and Large Language Models for Vietnamese Legal Document Query Systems
-- **Tác giả:** Pham Thi Xuan Hien, Duong Ngoc Thao Nhi, Pham Thi Ngoc Huyen
-- **Năm & Nguồn:** 2025 | *IC3K/KMIS 2025*
-- **DOI / Link:** https://doi.org/10.5220/0013751200004000
-- **Tệp tóm tắt:** `paper_summaries/paper_02.md`
-- **Phương pháp & Dữ liệu:** IR + LLM truy vấn văn bản pháp luật (RAG phân cấp) | 45.000 văn bản, 12 lĩnh vực; 2.000 cặp hỏi–đáp do chuyên gia xác nhận
-- **Đóng góp chính:** Citation Accuracy 94,2% (baseline tốt nhất 81,2%); độ chính xác giảm theo độ phức tạp câu hỏi.
-- **Ý nghĩa với đề tài:** Công trình gần nhất về RAG pháp luật Việt Nam; bài học trích dẫn điều khoản.
+## 1. Lĩnh vực: hỏi đáp thủ tục và pháp lý tiếng Việt (khuôn môn B2: ≥ 2 bài lĩnh vực)
 
-### Paper 03: Crossing Linguistic Horizons: Finetuning and Comprehensive Evaluation of Vietnamese Large Language Models
-- **Tác giả:** Sang T. Truong, Duc Q. Nguyen, Toan Nguyen, Dong D. Le, Nhi N. Truong, Tho Quan, Sanmi Koyejo (Stanford University; Trường ĐH Bách khoa – ĐHQG TP.HCM)
-- **Năm & Nguồn:** 2024 | *Findings NAACL 2024*
-- **DOI / Link:** https://aclanthology.org/2024.findings-naacl.182/
-- **Tệp tóm tắt:** `paper_summaries/paper_03.md`
-- **Phương pháp & Dữ liệu:** Tinh chỉnh LLaMa-2 cho tiếng Việt, đánh giá toàn diện | Nhiều tác vụ tiếng Việt (QA, tóm tắt, phân loại, suy luận…), 31 chỉ số, 14 LLM
-- **Đóng góp chính:** GPT-4 tốt nhất; mô hình tinh chỉnh vượt LLaMa-2 nền; kích thước không quyết định.
-- **Ý nghĩa với đề tài:** Cơ sở chọn và đánh giá LLM cho tiếng Việt (Qwen2.5 trong Sys_3_4).
+| Khoá | Trích dẫn | Mã | Trạng thái | Vai trò trong bài 1 |
+|---|---|---|---|---|
+| PhamDuy2023 | A. Pham Duy, H. Le Thanh. "A Question-Answering System for Vietnamese Public Administrative Services." SoICT 2023, ACM | DOI 10.1145/3628797.3628965 (PDF in thiếu tiền tố "10.1145/") | Đã kiểm (đọc PDF gốc) | **Công trình gần nhất.** 4.547 cặp hỏi đáp lấy từ trang câu hỏi phổ biến của Cổng DVC, kèm 785.996 đoạn văn bản luật; truy hồi lai BM25+ và SimCSE/PhoBERT, xếp lại bằng cross-encoder; đo Recall@k, MAP, NDCG, F2. **Chỉ có câu trả lời được, không có từ chối hay hỏi lại** → đây là khoảng trống của bài 1 |
+| ViGPTQA2023 | M.-T. Nguyen, K.-T. Tran, N. V. Nguyen, X.-S. Vu. "ViGPTQA – State-of-the-Art LLMs for Vietnamese Question Answering: System Overview, Core Models Training, and Evaluations." EMNLP 2023 Industry Track, pp. 754–764 | DOI 10.18653/v1/2023.emnlp-industry.70 | Đã kiểm (PDF + ACL Anthology) | LLM tiếng Việt cho hỏi đáp; bộ đánh giá trộn dữ liệu AI sinh và người viết. Bản draft cũ ghi sai tác giả ("N. Nguyen") và các số "15.000 cặp, 68,5% EM" **chưa kiểm** |
+| Hien2025 | P. T. X. Hien, D. N. T. Nhi, P. T. N. Huyen. "Integrating Information Retrieval and Large Language Models for Vietnamese Legal Document Query Systems." IC3K 2025 (KMIS), SciTePress | DOI 10.5220/0013751200004000; IC3K 2025 Vol. 2 (KEOD, KMIS), pp. 290–300 | Đã kiểm (PDF) | RAG pháp lý tiếng Việt, 45.000 văn bản. Số "89%" là do tác giả tự báo, đánh giá bằng RAGAS và khảo sát người dùng |
+| Ngo2025 | "Legal Documents Query Application for Vietnamese Law Using LLM and RAG Techniques" | — | **Chưa kiểm được**: PDF chỉ là ảnh chụp trang web, tìm kiếm không ra tên này | Không cite cho tới khi tìm thấy bản gốc |
+| AnsGen2025 | "Optimizing Answer Generator in Vietnamese Legal Question Answering Systems Using Language Models", ACM | DOI 10.1145/3732938 | Chờ (trang ACM chặn truy cập tự động) | Theo kết quả tìm kiếm: khoảng 10.000 cặp hỏi đáp từ Cổng DVC; so BartPho, VinaLlama-7B-chat, Llama3 8B bằng ROUGE |
+| VietPSLM2026 | "A Small Language Model and Domain-Specific Resources for Vietnamese Public Services", Springer (chương sách) | DOI 10.1007/978-981-95-4960-3_2 | Chờ | Model nhỏ cho dịch vụ công tiếng Việt: tiền huấn luyện thích ứng miền, SFT, suy luận hai lượt |
+| ICTmag | "A Large Language Model-Based Question Answering System for Online Public Administrative Services", Tạp chí Thông tin và Truyền thông | ictmag.ictvietnam.vn/…/1290 | Chờ (trang từ chối kết nối) | Hỏi đáp dịch vụ công trực tuyến bằng LLM |
+| LAURA2025 | "LAURA: A Legal Agent Using Reasoning and Acting for Vietnamese Law", KSE 2025 | — | Chờ | Agent ReAct cho luật Việt Nam |
 
-### Paper 04: Improving Vietnamese-English Cross-Lingual Retrieval for Legal and General Domains
-- **Tác giả:** Toan Ngoc Nguyen, Nam Le Hai, Nguyen Doan Hieu, Dai An Nguyen, Linh Ngo Van, Thien Huu Nguyen, Sang Dinh (BKAI – ĐH Bách khoa Hà Nội; University of Oregon)
-- **Năm & Nguồn:** 2025 | *NAACL 2025 (short)*
-- **DOI / Link:** https://aclanthology.org/2025.naacl-short.12/
-- **Tệp tóm tắt:** `paper_summaries/paper_04.md`
-- **Phương pháp & Dữ liệu:** Tinh chỉnh BGE-M3 xuyên ngôn ngữ + dữ liệu tổng hợp | VNLawQC, VNSynLawQC, ZaloLegal2021, ZaloWikipediaQA
-- **Đóng góp chính:** VNLawQC Việt–Anh 42,99 → 69,75; ZaloLegal2021 53,63 → 80,55.
-- **Ý nghĩa với đề tài:** Trực tiếp liên quan BGE-M3 trong Friendly Engine; tinh chỉnh embedding cho văn bản pháp luật.
+## 2. Từ chối, ngoài phạm vi, hỏi lại (khuôn B2: bài liên quan trực tiếp)
 
-### Paper 05: Analyzing Leakage of Personally Identifiable Information in Language Models
-- **Tác giả:** Nils Lukas, Ahmed Salem, Robert Sim, Shruti Tople, Lukas Wutschitz, Santiago Zanella-Béguelin (University of Waterloo; Microsoft)
-- **Năm & Nguồn:** 2023 | *IEEE S&P 2023*
-- **DOI / Link:** https://doi.org/10.1109/SP46215.2023.10179300
-- **Tệp tóm tắt:** `paper_summaries/paper_05.md`
-- **Phương pháp & Dữ liệu:** Tấn công trích xuất/tái tạo/suy luận PII; đánh giá scrubbing và DP | ECHR, Enron, Yelp-Health; GPT-2
-- **Đóng góp chính:** Không phòng vệ: precision 29,56%, recall 22,96%; DP ε=8 còn khoảng 3%; scrubbing dựa trên NER không hoàn hảo.
-- **Ý nghĩa với đề tài:** Cơ sở cho che PII và chạy on-prem trong tầng policy.
+| Khoá | Trích dẫn | Mã | Trạng thái | Vai trò |
+|---|---|---|---|---|
+| Wen2025 | B. Wen, J. Yao, S. Feng, C. Xu, Y. Tsvetkov, B. Howe, L. L. Wang. "Know Your Limits: A Survey of Abstention in Large Language Models." TACL 13 (2025) 529–556 | DOI 10.1162/tacl_a_00754; arXiv:2407.18418 | Đã kiểm (web) | Khung lý thuyết cho "từ chối": nhìn từ câu hỏi, từ model, từ giá trị con người |
+| Larson2019 | S. Larson et al. "An Evaluation Dataset for Intent Classification and Out-of-Scope Prediction." EMNLP-IJCNLP 2019, pp. 1311–1316 | DOI 10.18653/v1/D19-1131 | Đã kiểm (web) | Bộ CLINC150. Bài tìm ra rằng mô hình phân loại tốt trong phạm vi nhưng khó nhận ra câu ngoài phạm vi; cùng chiều với E1/E2 |
+| Rebedea2023 | T. Rebedea, R. Dinu, M. Sreedhar, C. Parisien, J. Cohen. "NeMo Guardrails: A Toolkit for Controllable and Safe LLM Applications with Programmable Rails." EMNLP 2023 System Demonstrations, pp. 431–445 | DOI 10.18653/v1/2023.emnlp-demo.40 | Đã kiểm (web) | "Rail" do người viết, chạy lúc suy luận, độc lập với LLM. Gần với lớp luật A |
+| Rajpurkar2018 | P. Rajpurkar, R. Jia, P. Liang. "Know What You Don't Know: Unanswerable Questions for SQuAD." ACL 2018 (Vol. 2), pp. 784–789 | DOI 10.18653/v1/P18-2124 | Đã kiểm (web) |Câu không trả lời được trong hỏi đáp |
+| Kamath2020 | A. Kamath, R. Jia, P. Liang. "Selective Question Answering under Domain Shift." ACL 2020, pp. 5684–5696 | DOI 10.18653/v1/2020.acl-main.503 | Đã kiểm (web) |Từ chối khi không chắc, khi dữ liệu lệch miền |
+| Aliannejadi2019 | M. Aliannejadi, H. Zamani, F. Crestani, W. B. Croft. "Asking Clarifying Questions in Open-Domain Information-Seeking Conversations." SIGIR 2019, pp. 475–484 | DOI 10.1145/3331184.3331265 | Đã kiểm (web) |Hỏi lại |
 
-### Paper 06: Not What You've Signed Up For: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection
-- **Tác giả:** Kai Greshake, Sahar Abdelnabi, Shailesh Mishra, Christoph Endres, Thorsten Holz, Mario Fritz (Saarland University; sequire technology; CISPA Helmholtz Center for Information Security)
-- **Năm & Nguồn:** 2023 | *AISec '23 (ACM CCS)*
-- **DOI / Link:** https://doi.org/10.1145/3605764.3623985
-- **Tệp tóm tắt:** `paper_summaries/paper_06.md`
-- **Phương pháp & Dữ liệu:** Phân loại và minh họa tấn công chèn lệnh gián tiếp | Không có bộ dữ liệu (proof-of-concept)
-- **Đóng góp chính:** Chứng minh dữ liệu truy hồi có thể điều khiển LLM: đánh cắp dữ liệu, lừa đảo, lan truyền.
-- **Ý nghĩa với đề tài:** Cơ sở cho lớp chống prompt injection và cách ly ngữ cảnh truy hồi.
+| Geifman2017 (khoá bib: geifman2017) | Y. Geifman, R. El-Yaniv. "Selective Classification for Deep Neural Networks." NeurIPS 2017 | arXiv:1705.08500; DBLP conf/nips/GeifmanE17 | Đã kiểm (arXiv + Semantic Scholar, 27/10/2026) | Phân loại có chọn lọc, đánh đổi rủi ro–độ phủ (referee gợi ý) |
+| Gilardi2023 (khoá bib: gilardi2023) | F. Gilardi, M. Alizadeh, M. Kubli. "ChatGPT Outperforms Crowd Workers for Text-Annotation Tasks." PNAS 120(30) e2305016120 (2023) | DOI 10.1073/pnas.2305016120; arXiv:2303.15056 | Đã kiểm (arXiv + Semantic Scholar, 27/10/2026) | LLM làm người gán nhãn: lý do bàn về độ tin cậy của nhãn AI (referee gợi ý) |
 
-### Paper 07: LegalCheck: Retrieval- and Context-Augmented Generation for Drafting Municipal Legal Advice Letters
-- **Tác giả:** Virgill van der Meer (Municipality of Amsterdam), Julien Rossi (University of Amsterdam)
-- **Năm & Nguồn:** 2026 | *ICAIL 2026 (short)*
-- **DOI / Link:** https://arxiv.org/abs/2605.12012
-- **Tệp tóm tắt:** `paper_summaries/paper_07.md`
-- **Phương pháp & Dữ liệu:** Retrieval- và Context-Augmented Generation soạn thư tư vấn pháp lý | ~23.500 thư 2022–2025, 4 lĩnh vực xử phạt
-- **Đóng góp chính:** F1 92%; tiết kiệm 92% thời gian soạn thảo; giảm 50–70% tổng thời gian.
-- **Ý nghĩa với đề tài:** Ví dụ triển khai thực tế ở chính quyền địa phương có người kiểm duyệt.
+## 3. Phương pháp và model (khuôn B2: ≥ 3 bài)
 
-### Paper 08: LegalBench-RAG: A Benchmark for Retrieval-Augmented Generation in the Legal Domain
-- **Tác giả:** Nicholas Pipitone, Ghita Houir Alami (ZeroEntropy)
-- **Năm & Nguồn:** 2024 | *arXiv preprint (giữ lại)* — preprint/báo cáo kỹ thuật, chưa bình duyệt
-- **DOI / Link:** https://arxiv.org/abs/2408.10343
-- **Tệp tóm tắt:** `paper_summaries/paper_08.md`
-- **Phương pháp & Dữ liệu:** Benchmark truy hồi đoạn chính xác trong văn bản pháp lý | ContractNLI, CUAD, MAUD, PrivacyQA (6.889 truy vấn)
-- **Đóng góp chính:** Recall@64 tối đa 76,39% (chia cố định); rerank Cohere không cải thiện.
-- **Ý nghĩa với đề tài:** Gợi ý đánh giá truy hồi ở mức đoạn/trường.
+| Khoá | Trích dẫn | Mã | Trạng thái | Vai trò |
+|---|---|---|---|---|
+| Qwen3 | Qwen Team. "Qwen3 Technical Report." 2025 | arXiv:2505.09388 | Đã kiểm (web) | Họ model của qwen3:4b-instruct-2507. **Thay cho Qwen2.5** trong bản draft cũ |
+| BGEM3 | J. Chen, S. Xiao, P. Zhang, K. Luo, D. Lian, Z. Liu. "M3-Embedding: Multi-Linguality, Multi-Functionality, Multi-Granularity Text Embeddings Through Self-Knowledge Distillation." Findings of ACL 2024, pp. 2318–2335 | DOI 10.18653/v1/2024.findings-acl.137; arXiv:2402.03216 | Đã kiểm (web) | Embedding của phương án B |
+| bgererank | BAAI. bge-reranker-v2-m3, model card trên Hugging Face | huggingface.co/BAAI/bge-reranker-v2-m3 | Đã kiểm (web, 25/10/2026; giấy phép Apache-2.0) | Reranker của phương án B |
+| qwen3inst | Qwen Team. Qwen3-4B-Instruct-2507, model card | huggingface.co/Qwen/Qwen3-4B-Instruct-2507 | Đã kiểm (web, 25/10/2026; Apache-2.0; bản cập nhật chỉ có chế độ non-thinking, 4,0B tham số, 36 lớp) | Báo cáo Qwen3 (5/2025) không mô tả bản 2507 nên cite thêm model card |
+| Lewis2020 | P. Lewis et al. "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks." NeurIPS 33 (2020), pp. 9459–9474 | arXiv:2005.11401 | Đã kiểm (web; số trang theo danh mục tham khảo của Hien2025) |Định nghĩa RAG |
+| Robertson2009 | S. Robertson, H. Zaragoza. "The Probabilistic Relevance Framework: BM25 and Beyond." Foundations and Trends in IR 3(4) (2009) 333–389 | DOI 10.1561/1500000019 | Đã kiểm (web) | Trọng số IDF của ranker (`retrieval/rank.py`; không phải BM25 đầy đủ: không có bão hoà tần suất). Module FTS5 `data/search.py` chỉ dùng cho hàm phụ, không xếp hạng |
+| CRAG2024 | S.-Q. Yan, J.-C. Gu, Y. Zhu, Z.-H. Ling. "Corrective Retrieval Augmented Generation." 2024 | arXiv:2401.15884 | Đã kiểm (PDF) | Bộ đánh giá truy hồi quyết định hành động, gần với decide() của B |
+| SelfRAG2024 | A. Asai, Z. Wu, Y. Wang, A. Sil, H. Hajishirzi. "Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection." ICLR 2024 | arXiv:2310.11511; ICLR 2024 (openreview hSyW5go0v8) | Đã kiểm (PDF + proceedings.iclr.cc) | Model tự quyết khi nào truy hồi hay phê phán; đối chiếu với "luật quyết định" |
 
-### Paper 09: Hallucination-Free? Assessing the Reliability of Leading AI Legal Research Tools
-- **Tác giả:** Varun Magesh, Faiz Surani, Matthew Dahl, Mirac Suzgun, Christopher D. Manning, Daniel E. Ho (Stanford University; Yale University)
-- **Năm & Nguồn:** 2025 | *JELS 2025*
-- **DOI / Link:** https://doi.org/10.1111/jels.12413
-- **Tệp tóm tắt:** `paper_summaries/paper_09.md`
-- **Phương pháp & Dữ liệu:** Đánh giá thực nghiệm công cụ RAG pháp lý thương mại | 202 truy vấn pháp lý Hoa Kỳ đăng ký trước
-- **Đóng góp chính:** Lexis+ AI và Practical Law ảo giác >1/6, Westlaw ~1/3 dù dùng RAG.
-- **Ý nghĩa với đề tài:** Bằng chứng RAG không loại bỏ ảo giác pháp lý → cần verifier.
+## 4. Chính phủ điện tử và LLM trong khu vực công
 
-### Paper 10: HyPA-RAG: A Hybrid Parameter Adaptive Retrieval-Augmented Generation System for AI Legal and Policy Applications
-- **Tác giả:** Rishi Kalra, Zekun Wu, Ayesha Gulley, Airlie Hilliard, Xin Guan, Adriano Koshiyama, Philip Treleaven (Holistic AI; University College London)
-- **Năm & Nguồn:** 2025 (preprint đầu tiên 9/2024) | *NAACL 2025 Industry*
-- **DOI / Link:** https://aclanthology.org/2025.naacl-industry.79/
-- **Tệp tóm tắt:** `paper_summaries/paper_10.md`
-- **Phương pháp & Dữ liệu:** Phân loại độ phức tạp → điều chỉnh tham số truy hồi lai + KG | LL144 (15 trang), bộ câu hỏi sinh bằng GPT-3.5/Giskard
-- **Đóng góp chính:** DistilBERT phân loại F1 0,90; LLM không truy hồi Correctness chỉ 0,20–0,46.
-- **Ý nghĩa với đề tài:** Ý tưởng điều chỉnh top-k theo độ phức tạp câu hỏi.
+| Khoá | Trích dẫn | Mã | Trạng thái | Vai trò |
+|---|---|---|---|---|
+| GovAIPipe2026 | A. Kaplan. "GovAI-Pipe: A Layered AI Governance Pipeline for Citizen-Facing AI in Turkey's e-Government Gateway." 2026 | arXiv:2606.01417 | Đã kiểm (PDF). Bản draft cũ ghi "Proc. dg.o 2026" mà chưa kiểm | Khung quản trị 4 lớp (kiểm trước triển khai, phân hạng rủi ro, giám sát lúc chạy + chuyển người xử lý, xử lý sau sự cố) cho chatbot e-Devlet. **Chỉ là khung khái niệm, chưa triển khai hay đánh giá thực nghiệm** (mục Limitations của bài). Bản nháp 25/10 từng ghi sai là "lọc phạm vi trước truy hồi", đã sửa |
+| GripOnLLMs2026 | L. Samson, I. Gornishka, G. Lô, Y. M. Asano, S. Ghebreab. "From Values to Benchmarks: Evaluating Large Language Models for Governmental Use in Dutch." 2026 | arXiv:2608.09925 | Đã kiểm (PDF). Bản draft cũ ghi "GIQ 2026" mà chưa kiểm | Đánh giá LLM cho chính quyền (Amsterdam), 6 chiều. Kết quả: model trả lời đúng (factuality) không có nghĩa là biết thừa nhận điều không biết (honesty) |
+| GuidaPA2026 | D. M. Jimenez-Gutierrez, A. Cirillo, R. Nicolussi, A. Beltrame, A. Vitaletti. "GuidaPA: Privacy-Preserving Chatbot for Public Administration via Federated Learning." 2026 | arXiv:2606.01386 | Đã kiểm (PDF) | Chatbot hành chính công, chạy tại chỗ, bảo vệ dữ liệu |
+| COPAL2026 | Y. Liu, Y. Hu, X. Wang, Y. Li, Y. Wei, X. Wang, Y. Zhou. "Beyond Single-Policy: Evaluating Composed Organization-Specific Policy Alignment in LLM Chatbots." 2026 | arXiv:2606.04394 | Đã kiểm (PDF). Bản draft cũ ghi "ACM TOCHI 2026" mà chưa kiểm | Chatbot phải tuân thủ chính sách riêng của tổ chức |
+| LegalCheck2026 | V. van der Meer, J. Rossi. "LegalCheck: Retrieval- and Context-Augmented Generation for Drafting Municipal Legal Advice Letters." 2026 | arXiv:2605.12012 | Đã kiểm (PDF). Nơi đăng ICAIL 2026: chờ kiểm | Hỗ trợ pháp lý cấp thành phố |
+| LegalMALR2026 | Y. Li, M. Xie, G. Kang, Z. Gong, G. Wu, M. Yang. "LegalMALR: Multi-Agent Query Understanding and LLM-Based Reranking for Chinese Statute Retrieval." 2026 | arXiv:2601.17692 | Đã kiểm (PDF). Bản draft cũ ghi sai tác giả và mã | Câu hỏi pháp lý của người dân "ngầm, nhiều vấn đề", gần với thư của người dân |
 
-### Paper 11: Legal Query RAG (LQ-RAG)
-- **Tác giả:** Rahman S. M. Wahidur, Sumin Kim, Haeung Choi, David S. Bhatti, Heung-No Lee (Gwangju Institute of Science and Technology – GIST, Hàn Quốc)
-- **Năm & Nguồn:** 2025 | *IEEE Access 2025*
-- **DOI / Link:** https://doi.org/10.1109/ACCESS.2025.3542125
-- **Tệp tóm tắt:** `paper_summaries/paper_11.md`
-- **Phương pháp & Dữ liệu:** RAG có tác tử đánh giá phản hồi + tinh chỉnh embedding/LLM | 7 bộ truy hồi tự xây; benchmark tổng quát và pháp lý
-- **Đóng góp chính:** HFM cải thiện 9% (tổng quát) và 38% (pháp lý); kém ở một số bộ.
-- **Ý nghĩa với đề tài:** Vòng phản hồi viết lại truy vấn; cảnh báo chi phí độ trễ.
+## 5. Thống kê và giao thức đánh giá
 
-### Paper 12: STARD: A Chinese Statute Retrieval Dataset Derived from Real-life Queries by Non-professionals
-- **Tác giả:** Weihang Su, Yiran Hu, Anzhe Xie, Qingyao Ai, Zibing Que, Ning Zheng, Yun Liu, Weixing Shen, Yiqun Liu (Đại học Thanh Hoa; Đại học Bắc Kinh)
-- **Năm & Nguồn:** 2024 | *Findings EMNLP 2024*
-- **DOI / Link:** https://aclanthology.org/2024.findings-emnlp.625/
-- **Tệp tóm tắt:** `paper_summaries/paper_12.md`
-- **Phương pháp & Dữ liệu:** Benchmark truy hồi điều luật; gán nhãn 3 bước Recall/Decomposition/Filter | 1.543 câu hỏi thật, 55.348 điều luật
-- **Đóng góp chính:** Dense-STARD R@100 0,9065; BM25 0,6493; PLM pháp lý zero-shot thấp hơn lexical.
-- **Ý nghĩa với đề tài:** Mẫu quy trình gán nhãn và bộ đánh giá cho câu hỏi đời thường → điều khoản thủ tục.
+| Khoá | Trích dẫn | Trạng thái | Vai trò |
+|---|---|---|---|
+| McNemar1947 | Q. McNemar. "Note on the sampling error of the difference between correlated proportions or percentages." Psychometrika 12 (1947) | Đã kiểm (web): Psychometrika 12 (1947) 153–157, DOI 10.1007/BF02295996 | Phép kiểm cặp |
+| Dietterich1998 | T. G. Dietterich. "Approximate Statistical Tests for Comparing Supervised Classification Learning Algorithms." Neural Computation 10 (1998) | Đã kiểm (web): Neural Computation 10(7) (1998) 1895–1923, DOI 10.1162/089976698300017197 | Lý do dùng McNemar khi so hai bộ phân loại |
+| Wilson1927 | E. B. Wilson. "Probable Inference, the Law of Succession, and Statistical Inference." JASA 22 (1927) | Đã kiểm (web): JASA 22(158) (1927) 209–212, DOI 10.1080/01621459.1927.10502953 | Khoảng tin cậy |
+| Cohen1960 | J. Cohen. "A Coefficient of Agreement for Nominal Scales." Educational and Psychological Measurement 20 (1960) | Đã kiểm (web): EPM 20(1) (1960) 37–46, DOI 10.1177/001316446002000104 | κ |
+| LandisKoch1977 | J. R. Landis, G. G. Koch. "The Measurement of Observer Agreement for Categorical Data." Biometrics 33 (1977) | Đã kiểm (web): Biometrics 33(1) (1977) 159–174, DOI 10.2307/2529310 | Thang diễn giải κ (0,61–0,80 = "substantial") |
+| Brodersen2010 | K. H. Brodersen et al. "The Balanced Accuracy and Its Posterior Distribution." ICPR 2010 | Đã kiểm (web): ICPR 2010, pp. 3121–3124, DOI 10.1109/ICPR.2010.764 | Balanced accuracy |
+| Dwork2015 | C. Dwork et al. "The Reusable Holdout: Preserving Validity in Adaptive Data Analysis." Science 349 (2015) | Đã kiểm (web): Science 349(6248) (2015) 636–638, DOI 10.1126/science.aaa9375 | Lý do khoá test và chạy một lần |
 
----
+## 6. Bộ dữ liệu (cite dạng tài nguyên)
 
-## PHẦN II: BÀI BÁO VỀ MODEL AI HOẶC PHƯƠNG PHÁP AI (PAPERS 13 - 31)
+| Khoá | Nguồn | Trạng thái |
+|---|---|---|
+| HF-dvc | `hieunguyen1053/dichvucong_faqs` (config hoi-dap, 1.07k dòng), Hugging Face; theo các link trong dữ liệu thì là hỏi đáp của Cổng DVC tỉnh Bình Định | Đã kiểm 25/10/2026: **không ghi giấy phép**, thẻ dataset trống |
+| HF-mps | `doanhieung/vn-mps-public-service-qa` (809 dòng), Hugging Face; hỏi đáp của Cổng Dịch vụ công Bộ Công an | Đã kiểm 25/10/2026: **không ghi giấy phép** |
+| DVC | Cổng Dịch vụ công Quốc gia, dichvucong.gov.vn, truy cập 13/10/2026 | Đã kiểm |
 
-### Paper 13: Chain-of-Verification Reduces Hallucination in Large Language Models (CoVe)
-- **Tác giả:** Shehzaad Dhuliawala, Mojtaba Komeili, Jing Xu, Roberta Raileanu, Xian Li, Asli Celikyilmaz, Jason Weston (Meta AI; ETH Zürich)
-- **Năm & Nguồn:** 2024 (preprint 9/2023) | *Findings ACL 2024*
-- **DOI / Link:** https://aclanthology.org/2024.findings-acl.212/
-- **Tệp tóm tắt:** `paper_summaries/paper_13.md`
-- **Phương pháp & Dữ liệu:** Lập kế hoạch câu hỏi kiểm chứng → trả lời độc lập → sửa | Wikidata, Wiki-Category, MultiSpanQA, tiểu sử
-- **Đóng góp chính:** Precision Wikidata 0,17 → 0,36; FActScore 55,9 → 71,4.
-- **Ý nghĩa với đề tài:** Ý tưởng kiểm chứng từng điểm sau sinh (verify_point).
+## 7. Bỏ khỏi bài 1
 
-### Paper 14: Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection
-- **Tác giả:** Akari Asai, Zeqiu Wu, Yizhong Wang, Avirup Sil, Hannaneh Hajishirzi (University of Washington; Allen Institute for AI; IBM Research AI)
-- **Năm & Nguồn:** 2024 (preprint 10/2023) | *ICLR 2024 (oral)*
-- **DOI / Link:** https://proceedings.iclr.cc/paper_files/paper/2024/hash/25f7be9694d7b32d5cc670927b8091e1-Abstract-Conference.html
-- **Tệp tóm tắt:** `paper_summaries/paper_14.md`
-- **Phương pháp & Dữ liệu:** Huấn luyện LLM sinh reflection token quyết định truy hồi và tự phê bình | 150K mẫu huấn luyện; PopQA, PubHealth, ARC, TriviaQA, ASQA, tiểu sử
-- **Đóng góp chính:** Self-RAG 13B: PopQA 55,8; FactScore 80,2; citation precision 70,3.
-- **Ý nghĩa với đề tài:** Đối chứng giữa tự phê bình học được và verifier tất định.
+GPTCache, RouteLLM, vLLM, Nougat, Constitutional AI, DSPy, ToolLLM, RAGAS, Shakti (Aralimatti 2025), Pareja 2024, Patel 2025, Akarsu 2026, Baban 2025, HyPA-RAG, CanLegalRAGBench, LegalBench-RAG, CoVe, CRITIC, GASP, LawPal, LQ-RAG.
 
-### Paper 15: CRITIC: Large Language Models Can Self-Correct with Tool-Interactive Critiquing
-- **Tác giả:** Zhibin Gou, Zhihong Shao, Yeyun Gong, Yelong Shen, Yujiu Yang, Nan Duan, Weizhu Chen (Tsinghua University; Microsoft Research Asia; Microsoft Azure AI)
-- **Năm & Nguồn:** 2024 | *ICLR 2024*
-- **DOI / Link:** https://proceedings.iclr.cc/paper_files/paper/2024/hash/fef126561bbf9d4467dbb8d27334b8fe-Abstract-Conference.html
-- **Tệp tóm tắt:** `paper_summaries/paper_15.md`
-- **Phương pháp & Dữ liệu:** Vòng xác minh → phê bình → sửa dùng công cụ ngoài | AmbigNQ, TriviaQA, HotpotQA, GSM8k, SVAMP, TabMWP, RealToxicityPrompts
-- **Đóng góp chính:** ChatGPT AmbigNQ F1 64,3 → 74,9; tự sửa không công cụ có thể làm kết quả xấu đi.
-- **Ý nghĩa với đề tài:** Củng cố việc kiểm chứng phải dựa vào nguồn ngoài (CSDL thủ tục), không tự phán.
+Lý do: hệ thống không dùng; hoặc không liên quan trực tiếp tới "trả lời / hỏi lại / từ chối"; hoặc bản draft cũ trích sai. Chi tiết ở `draft_salvage.md` mục 3. Một số bài (Akarsu 2026, LegalBench-RAG) có thể dùng cho bài 2.
 
-### Paper 16: RAGTruth: A Hallucination Corpus for Developing Trustworthy Retrieval-Augmented Language Models
-- **Tác giả:** Cheng Niu, Yuanhao Wu, Juno Zhu, Siliang Xu, Kashun Shum, Randy Zhong, Juntong Song, Tong Zhang (NewsBreak; University of Illinois Urbana-Champaign)
-- **Năm & Nguồn:** 2024 | *ACL 2024*
-- **DOI / Link:** https://aclanthology.org/2024.acl-long.585/
-- **Tệp tóm tắt:** `paper_summaries/paper_16.md`
-- **Phương pháp & Dữ liệu:** Kho chú thích ảo giác mức span cho đầu ra RAG | 2.965 mẫu, 17.790 câu trả lời, 14.289 span
-- **Đóng góp chính:** 43,1% câu trả lời có ảo giác; data-to-text cao nhất (68,6%).
-- **Ý nghĩa với đề tài:** Mô hình đánh giá ảo giác cho Friendly Engine; data-to-text tương tự bảng lệ phí.
+## 8. Đối chiếu với `07_paper_draft/latex/refs.bib` (28/10/2026)
 
-### Paper 17: FActScore: Fine-grained Atomic Evaluation of Factual Precision in Long Form Text Generation
-- **Tác giả:** Sewon Min, Kalpesh Krishna, Xinxi Lyu, Mike Lewis, Wen-tau Yih, Pang Wei Koh, Mohit Iyyer, Luke Zettlemoyer, Hannaneh Hajishirzi (University of Washington; UMass Amherst; Allen Institute for AI; Meta AI)
-- **Năm & Nguồn:** 2023 | *EMNLP 2023*
-- **DOI / Link:** https://aclanthology.org/2023.emnlp-main.741/
-- **Tệp tóm tắt:** `paper_summaries/paper_17.md`
-- **Phương pháp & Dữ liệu:** Tách sự kiện nguyên tử, kiểm tra với nguồn tri thức | Tiểu sử 183 người (thủ công), 500 người (tự động)
-- **Đóng góp chính:** ChatGPT 58,3%; PerplexityAI 71,5%; chính xác giảm mạnh với thực thể hiếm.
-- **Ý nghĩa với đề tài:** Thước đo phân rã sự kiện cho đánh giá câu trả lời thủ tục.
+Bài trích **29** mục. Có trong danh sách này nhưng **không còn được trích** trong bản cuối:
+- Dietterich1998, LandisKoch1977 và Robertson2009: bỏ ngày 27/10 để vừa số trang. Ý của chúng vẫn đúng; bài chỉ còn trích McNemar1947 và Cohen1960.
+- LegalCheck2026 (paper_14): chỉ để tham khảo, không trích trong bài.
 
-### Paper 18: Corrective Retrieval Augmented Generation (CRAG)
-- **Tác giả:** Shi-Qi Yan, Jia-Chen Gu, Yun Zhu, Zhen-Hua Ling (University of Science and Technology of China; UCLA; Google DeepMind)
-- **Năm & Nguồn:** 2024 | *arXiv preprint (giữ lại)* — preprint/báo cáo kỹ thuật, chưa bình duyệt
-- **DOI / Link:** https://arxiv.org/abs/2401.15884
-- **Tệp tóm tắt:** `paper_summaries/paper_18.md`
-- **Phương pháp & Dữ liệu:** Bộ đánh giá truy hồi → Correct/Incorrect/Ambiguous → tìm bổ sung | PopQA, Biography, PubHealth, ARC
-- **Đóng góp chính:** RAG → CRAG: PopQA 52,8 → 59,8; PubHealth 39,0 → 75,6.
-- **Ý nghĩa với đề tài:** Ý tưởng chấm độ tin cậy truy hồi trước khi sinh.
-
-### Paper 19: M3-Embedding: Multi-Linguality, Multi-Functionality, Multi-Granularity Text Embeddings Through Self-Knowledge Distillation
-- **Tác giả:** Jianlv Chen, Shitao Xiao, Peitian Zhang, Kun Luo, Defu Lian, Zheng Liu (BAAI; Đại học Khoa học và Công nghệ Trung Quốc)
-- **Năm & Nguồn:** 2024 | *Findings ACL 2024*
-- **DOI / Link:** https://aclanthology.org/2024.findings-acl.137/
-- **Tệp tóm tắt:** `paper_summaries/paper_19.md`
-- **Phương pháp & Dữ liệu:** Một mô hình cho 3 kiểu truy xuất, self-knowledge distillation, 8.192 token | 1,2 tỷ cặp không nhãn + dữ liệu có nhãn; MIRACL, MKQA, MLDR
-- **Đóng góp chính:** MIRACL nDCG@10 All 71,5 (dense 69,2); MKQA vi R@100 76,9.
-- **Ý nghĩa với đề tài:** Nền tảng BGE-M3 của Friendly Engine; cơ sở cho truy hồi lai.
-
-### Paper 20: Optimizing Retrieval-Augmented Generation with Multi-Agent Hybrid Retrieval
-- **Tác giả:** Hediyeh Baban, Sai Abhishek Pidaparthi, Samaksh Gulati, Aashutosh Nema (Dell Technologies)
-- **Năm & Nguồn:** 2025 | *GenAIRecP @ KDD 2025*
-- **DOI / Link:** https://genai-personalization.github.io/assets/papers/GenAIRecP2025/11_Baban.pdf
-- **Tệp tóm tắt:** `paper_summaries/paper_20.md`
-- **Phương pháp & Dữ liệu:** Tác tử điều phối BM25 + embedding, tự điều chỉnh trọng số | 100.000 tài liệu, 500 truy vấn chú thích
-- **Đóng góp chính:** Top-10 85% → 92%; độ trễ 43 s → 11 s; trọng số BM25/embedding 30/70 tốt nhất.
-- **Ý nghĩa với đề tài:** Tham khảo cân bằng sparse/dense; RRF trong Sys_3_4.
-
-### Paper 21: QLoRA: Efficient Finetuning of Quantized LLMs
-- **Tác giả:** Tim Dettmers, Artidoro Pagnoni, Ari Holtzman, Luke Zettlemoyer (University of Washington)
-- **Năm & Nguồn:** 2023 | *NeurIPS 2023*
-- **DOI / Link:** https://proceedings.neurips.cc/paper_files/paper/2023/hash/1feb87871436031bdc0f2beaa62a049b-Abstract-Conference.html
-- **Tệp tóm tắt:** `paper_summaries/paper_21.md`
-- **Phương pháp & Dữ liệu:** NF4 + double quantization + paged optimizer + LoRA | GLUE, Super-NaturalInstructions, MMLU, 8 bộ chỉ dẫn
-- **Đóng góp chính:** NF4 + DQ tái tạo hiệu năng 16-bit (MMLU 53,1 vs 53,0); Guanaco 7B cần 5GB.
-- **Ý nghĩa với đề tài:** Khả thi tinh chỉnh Qwen2.5 trên GPU on-prem.
-
-### Paper 22: Qwen2.5 Technical Report
-- **Tác giả:** Qwen Team (Alibaba Group) — An Yang, Baosong Yang, Beichen Zhang và cộng sự
-- **Năm & Nguồn:** 2024 (bản v2: 1/2025) | *Technical report (giữ lại)* — preprint/báo cáo kỹ thuật, chưa bình duyệt
-- **DOI / Link:** https://arxiv.org/abs/2412.15115
-- **Tệp tóm tắt:** `paper_summaries/paper_22.md`
-- **Phương pháp & Dữ liệu:** Tiền huấn luyện 18T token + hậu huấn luyện SFT/RL | Benchmark mở + nội bộ (dữ liệu huấn luyện không công bố)
-- **Đóng góp chính:** Qwen2.5-7B-Instruct vượt Gemma2-9B và Llama3.1-8B (trừ IFEval).
-- **Ý nghĩa với đề tài:** Tài liệu chính thức của mô hình dùng trong Friendly Engine.
-
-### Paper 23: Unveiling the Secret Recipe: A Guide for Supervised Fine-Tuning Small LLMs
-- **Tác giả:** Aldo Pareja, Nikhil Shivakumar Nayak, Hao Wang, Krishnateja Killamsetty, Shivchander Sudalairaj, Wenlong Zhao, Seungwook Han, Abhishek Bhandwaldar, Guangxuan Xu, Kai Xu, Ligong Han, Luke Inglis, Akash Srivastava (Red Hat AI Innovation; MIT-IBM Watson AI Lab; IBM Research; MIT; UMass Amherst)
-- **Năm & Nguồn:** 2025 (preprint 12/2024) | *ICLR 2025*
-- **DOI / Link:** https://iclr.cc/virtual/2025/poster/28940
-- **Tệp tóm tắt:** `paper_summaries/paper_23.md`
-- **Phương pháp & Dữ liệu:** Nghiên cứu thực nghiệm siêu tham số SFT cho LLM 3B–7B | Dữ liệu tổng hợp theo taxonomy LAB
-- **Đóng góp chính:** Batch lớn + LR thấp tổng quát tốt hơn; stacked ≈ phased nhưng ít mẫu hơn.
-- **Ý nghĩa với đề tài:** Hướng dẫn nếu nhóm tinh chỉnh Qwen2.5 cho thủ tục hành chính.
-
-### Paper 24: GPTCache: An Open-Source Semantic Cache for LLM Applications Enabling Faster Answers and Cost Savings
-- **Tác giả:** Bang Fu, Di Feng (Zilliz Inc.)
-- **Năm & Nguồn:** 2023 | *NLP-OSS 2023 (EMNLP)*
-- **DOI / Link:** https://aclanthology.org/2023.nlposs-1.24/
-- **Tệp tóm tắt:** `paper_summaries/paper_24.md`
-- **Phương pháp & Dữ liệu:** Cache truy vấn bằng embedding + bộ đánh giá tương đồng | Cặp câu tự tạo bằng ChatGPT (30.000 khóa)
-- **Đóng góp chính:** 876/1.000 trúng (39 sai); độ trễ khi trúng ~0,2 s.
-- **Ý nghĩa với đề tài:** Cảnh báo rủi ro trả nhầm thủ tục tương tự khi dùng cache.
-
-### Paper 25: RouteLLM: Learning to Route LLMs with Preference Data
-- **Tác giả:** Isaac Ong, Amjad Almahairi, Vincent Wu, Wei-Lin Chiang, Tianhao Wu, Joseph E. Gonzalez, M Waleed Kadous, Ion Stoica (UC Berkeley; Anyscale; Canva)
-- **Năm & Nguồn:** 2025 (preprint 6/2024) | *ICLR 2025*
-- **DOI / Link:** https://proceedings.iclr.cc/paper_files/paper/2025/hash/5503a7c69d48a2f86fc00b3dc09de686-Abstract-Conference.html
-- **Tệp tóm tắt:** `paper_summaries/paper_25.md`
-- **Phương pháp & Dữ liệu:** Router học từ dữ liệu ưu tiên chọn mô hình mạnh/yếu | Chatbot Arena + tăng cường; MMLU, MT Bench, GSM8K
-- **Đóng góp chính:** Matrix factorization APGR 0,802 trên MT Bench; cần dữ liệu trong miền.
-- **Ý nghĩa với đề tài:** Cơ sở cho định tuyến Strict/Friendly Engine.
-
-### Paper 26: Efficient Memory Management for Large Language Model Serving with PagedAttention (vLLM)
-- **Tác giả:** Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying Sheng, Lianmin Zheng, Cody Hao Yu, Joseph E. Gonzalez, Hao Zhang, Ion Stoica (UC Berkeley; Stanford; UC San Diego)
-- **Năm & Nguồn:** 2023 | *SOSP 2023*
-- **DOI / Link:** https://doi.org/10.1145/3600006.3613165
-- **Tệp tóm tắt:** `paper_summaries/paper_26.md`
-- **Phương pháp & Dữ liệu:** PagedAttention quản lý KV cache theo trang | Tải công việc từ ShareGPT, Alpaca
-- **Đóng góp chính:** Thông lượng cao hơn 2–4 lần so với hệ thống trước.
-- **Ý nghĩa với đề tài:** Nền tảng phục vụ Qwen2.5 on-prem (vLLM).
-
-### Paper 27: Nougat: Neural Optical Understanding for Academic Documents
-- **Tác giả:** Lukas Blecher, Guillem Cucurull, Thomas Scialom, Robert Stojnic (Meta AI)
-- **Năm & Nguồn:** 2024 (preprint 8/2023) | *ICLR 2024*
-- **DOI / Link:** https://proceedings.iclr.cc/paper_files/paper/2024/hash/a39a9aceda771cded859ae7560530e09-Abstract-Conference.html
-- **Tệp tóm tắt:** `paper_summaries/paper_27.md`
-- **Phương pháp & Dữ liệu:** Transformer ảnh → markup (Swin + mBART) | arXiv, PubMed Central, Industry Documents
-- **Đóng góp chính:** F1 93,1; bảng F1 78,0; lặp ở 1,5% trang.
-- **Ý nghĩa với đề tài:** Tham khảo trích xuất bảng biểu từ văn bản thủ tục.
-
-### Paper 28: Constitutional AI: Harmlessness from AI Feedback
-- **Tác giả:** Yuntao Bai, Saurav Kadavath, Sandipan Kundu, Amanda Askell, … , Jared Kaplan (Anthropic; 51 tác giả)
-- **Năm & Nguồn:** 2022 | *arXiv preprint (giữ lại)* — preprint/báo cáo kỹ thuật, chưa bình duyệt
-- **DOI / Link:** https://arxiv.org/abs/2212.08073
-- **Tệp tóm tắt:** `paper_summaries/paper_28.md`
-- **Phương pháp & Dữ liệu:** SL tự phê bình/sửa + RLAIF theo bộ nguyên tắc | 182.831 prompt red team; 135.296 prompt hữu ích
-- **Đóng góp chính:** RL-CAI vô hại hơn ở cùng mức hữu ích so với HH-RLHF.
-- **Ý nghĩa với đề tài:** Tinh thần nguyên tắc tường minh trong tầng policy.
-
-### Paper 29: DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines
-- **Tác giả:** Omar Khattab, Arnav Singhvi, Paridhi Maheshwari, Zhiyuan Zhang, Keshav Santhanam, Sri Vardhamanan, Saiful Haq, Ashutosh Sharma, Thomas T. Joshi, Hanna Moazam, Heather Miller, Matei Zaharia, Christopher Potts
-- **Năm & Nguồn:** 2024 (bản arXiv v1: 10/2023) | *ICLR 2024*
-- **DOI / Link:** https://proceedings.iclr.cc/paper_files/paper/2024/hash/f1cf02ce09757f57c3b93c0db83181e0-Abstract-Conference.html
-- **Tệp tóm tắt:** `paper_summaries/paper_29.md`
-- **Phương pháp & Dữ liệu:** Signature – module – teleprompter tự tối ưu demo/prompt | GSM8K, HotPotQA (200 train/300 dev)
-- **Đóng góp chính:** GPT-3.5 vượt few-shot >25%, llama2-13b >65%; GSM8K CoT ensemble 88,3% dev.
-- **Ý nghĩa với đề tài:** Tối ưu prompt/demo cho các bước Friendly Engine.
-
-### Paper 30: ToolLLM: Facilitating Large Language Models to Master 16000+ Real-world APIs
-- **Tác giả:** Yujia Qin, Shihao Liang, Yining Ye, Kunlun Zhu, Lan Yan, Yaxi Lu, Yankai Lin, Xin Cong, Xiangru Tang, Bill Qian, Sihan Zhao, Lauren Hong, Runchu Tian, Ruobing Xie, Jie Zhou, Mark Gerstein, Dahai Li, Zhiyuan Liu, Maosong Sun (Tsinghua University, Yale, Renmin University, Tencent WeChat AI…)
-- **Năm & Nguồn:** 2024 (bản arXiv v2: 10/2023) | *ICLR 2024*
-- **DOI / Link:** https://proceedings.iclr.cc/paper_files/paper/2024/hash/28e50ee5b72e90b50e7196fde8ea260e-Abstract-Conference.html
-- **Tệp tóm tắt:** `paper_summaries/paper_30.md`
-- **Phương pháp & Dữ liệu:** ToolBench + DFSDT + API retriever + ToolLLaMA | 16.464 API, 126.486 cặp chỉ dẫn–lời giải; APIBench
-- **Đóng góp chính:** ToolLLaMA-DFSDT pass 66,7 (ChatGPT-DFSDT 64,8); retriever NDCG@5 84,9 vs BM25 17,0.
-- **Ý nghĩa với đề tài:** Chọn thủ tục/công cụ đúng từ kho lớn; giới hạn hành động của LLM.
-
-### Paper 31: RAGAS: Automated Evaluation of Retrieval Augmented Generation
-- **Tác giả:** Shahul Es, Jithin James (Exploding Gradients), Luis Espinosa-Anke, Steven Schockaert (CardiffNLP, Cardiff University; AMPLYFI)
-- **Năm & Nguồn:** 2024 | *EACL 2024 Demo*
-- **DOI / Link:** https://aclanthology.org/2024.eacl-demo.16/
-- **Tệp tóm tắt:** `paper_summaries/paper_31.md`
-- **Phương pháp & Dữ liệu:** Faithfulness, Answer Relevance, Context Relevance không cần tham chiếu | WikiEval (50 trang Wikipedia)
-- **Đóng góp chính:** Faithfulness 0,95; Answer Rel. 0,78; Context Rel. 0,70 (vượt GPT Score/Ranking).
-- **Ý nghĩa với đề tài:** Thước đo cho Friendly Engine (RQ1, RQ3).
-
----
-
-## PHẦN III: BÀI BÁO VỀ DOMAIN ỨNG DỤNG (PAPERS 32 - 33)
-
-### Paper 32: Large Legal Fictions: Profiling Legal Hallucinations in Large Language Models
-- **Tác giả:** Matthew Dahl (Yale), Varun Magesh, Mirac Suzgun, Daniel E. Ho (Stanford University, RegLab)
-- **Năm & Nguồn:** 2024 | *Journal of Legal Analysis 2024*
-- **DOI / Link:** https://doi.org/10.1093/jla/laae003
-- **Tệp tóm tắt:** `paper_summaries/paper_32.md`
-- **Phương pháp & Dữ liệu:** 14 tác vụ truy vấn án lệ; có/không tham chiếu; phản sự thật; ECE | 5.000 vụ án mỗi cấp tòa liên bang Hoa Kỳ; >800.000 truy vấn
-- **Đóng góp chính:** Ảo giác 58% (GPT-4) đến 88% (Llama 2); thường chấp nhận tiền đề sai; tự tin quá mức.
-- **Ý nghĩa với đề tài:** Bằng chứng không để LLM tự trả lời từ kiến thức tham số; cần clarify và verifier.
-
-### Paper 33: NeMo Guardrails: A Toolkit for Controllable and Safe LLM Applications with Programmable Rails
-- **Tác giả:** Traian Rebedea, Razvan Dinu, Makesh Sreedhar, Christopher Parisien, Jonathan Cohen (NVIDIA)
-- **Năm & Nguồn:** 2023 | *EMNLP 2023 Demo*
-- **DOI / Link:** https://aclanthology.org/2023.emnlp-demo.40/
-- **Tệp tóm tắt:** `paper_summaries/paper_33.md`
-- **Phương pháp & Dữ liệu:** Rail lập trình bằng Colang; topical/execution rails (fact-check, hallucination, moderation) | Banking (231 mẫu), Anthropic Red-Teaming/Helpful, MS MARCO, 20 câu tiền đề sai
-- **Đóng góp chính:** Chặn gần 99% prompt có hại, 2% hữu ích; hallucination rail 65% → 95%.
-- **Ý nghĩa với đề tài:** Tham chiếu gần nhất cho tầng policy của Sys_3_4.
+Mọi mục còn lại ở mục 1–6 đều được trích. Từ 28/10, cả 29 mục được trích đều có tệp tóm tắt (paper_01–paper_29; Qwen3 và model card Qwen3-4B-Instruct-2507 chung tệp paper_08).
