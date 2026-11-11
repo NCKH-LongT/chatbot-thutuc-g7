@@ -20,11 +20,11 @@ Everything needed to check the reported numbers is in [`Code/`](Code/):
 | `Code/eval/hard/results/` | Per-question decisions of every run (development, test 1, test 2), without question texts. |
 | `Code/eval/real_v1/LOCK.md`, `Code/eval/real_v2/LOCK.md`, `Code/eval/real_v4/README.md` | SHA-256 hashes and commits at which the label sets (development, test 1, test 2) were locked. |
 | `Code/data/runtime/knowledge/3-423eff02f8.db` | The procedure database used by all runs (public portal data, no personal data). |
+| `07_paper_draft/latex/` | LaTeX source of the paper as submitted to ICCIES 2027 (Springer LNCS class). Build with pdflatex + bibtex. |
 
 ### What is not here
 
 - **Question texts.** The questions come from two public Hugging Face datasets that state no license, so they are not redistributed. `Code/labels/` holds only IDs and row positions; `python run_server.py eval/rebuild_questions.py` (from `Code/`) re-fetches the texts from the datasets.
-- **The paper source.** The LaTeX source is kept private until the camera-ready version (see `07_paper_draft/README.md`).
 
 ### How to reproduce
 
@@ -81,8 +81,8 @@ Repo này là repo của nhóm 7 trong môn thực tập, dựng theo khuôn th�
 | `04_proposed_system/` | Tổng quan, kiến trúc, tích hợp model, luồng dữ liệu, sơ đồ (`diagrams/`) |
 | `05_methodology/` | Phương pháp, dữ liệu, baseline, chỉ số |
 | `06_experiment_results/` | Cài đặt thí nghiệm, kết quả, bảng (`tables/`), hình (`figures/`) |
-| `07_paper_draft/` | Chỉ có `README.md`: nguồn LaTeX của bài được giữ riêng tư đến khi nộp bản cuối |
-| `08_final_submission/` | Chỉ có `README.md`, cùng lý do như trên |
+| `07_paper_draft/` | Nguồn LaTeX của bài, bản nộp ICCIES 2027 (`latex/`) |
+| `08_final_submission/` | Chỉ có `README.md`: PDF bản cuối sẽ được đưa lên sau khi có bản camera-ready |
 | `weekly_reports/` | Báo cáo tuần |
 | `Code/` | Code công khai đi kèm bài: System 3, script đánh giá, DB thủ tục, nhãn, kết quả từng câu (không có văn bản câu hỏi) |
 | `Code/analysis/` | Script tính lại các bảng và thống kê của bài từ kết quả từng câu, kèm kết quả (`out/`) |
