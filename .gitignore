@@ -1,0 +1,6 @@
+# local scratch / run outputs / venv / caches / private status notes
+.tmp/
+.bench/
+.venv/
+__pycache__/
+00_STATUS.pdf
