@@ -81,7 +81,7 @@ Repo này là repo của nhóm 7 trong môn thực tập, dựng theo khuôn th�
 | `04_proposed_system/` | Tổng quan, kiến trúc, tích hợp model, luồng dữ liệu, sơ đồ (`diagrams/`) |
 | `05_methodology/` | Phương pháp, dữ liệu, baseline, chỉ số |
 | `06_experiment_results/` | Cài đặt thí nghiệm, kết quả, bảng (`tables/`), hình (`figures/`) |
-| `07_paper_draft/` | Chỉ có `README.md`: nguồn LaTeX của bài được giữ riêng tư đến khi nộp bản cuối; bản nháp trước đó nằm trong lịch sử repo tại commit `e779b80` |
+| `07_paper_draft/` | Chỉ có `README.md`: nguồn LaTeX của bài được giữ riêng tư đến khi nộp bản cuối |
 | `08_final_submission/` | Chỉ có `README.md`, cùng lý do như trên |
 | `weekly_reports/` | Báo cáo tuần |
 | `Code/` | Code công khai đi kèm bài: System 3, script đánh giá, DB thủ tục, nhãn, kết quả từng câu (không có văn bản câu hỏi) |
