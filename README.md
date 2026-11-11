@@ -2,7 +2,7 @@
 
 Code, labels, per-question results and analysis scripts that accompany the paper.
 
-**Authors:** Hoang Nhan Trinh (corresponding author), Viet Hung Nguyen, Le Thien Dan Pham (Department of Artificial Intelligence, FPT University, Ho Chi Minh City, Vietnam) and Long Truong (FPT University, Ho Chi Minh City, Vietnam).
+**Authors:** Hoang Nhan Trinh, Viet Hung Nguyen, Le Thien Dan Pham (Department of Artificial Intelligence, FPT University, Ho Chi Minh City, Vietnam) and Long Truong (FPT University, Ho Chi Minh City, Vietnam).
 
 ## For reviewers (English)
 
@@ -68,7 +68,7 @@ Apache License 2.0, see [`LICENSE`](LICENSE).
 Repo này là repo của nhóm 7 trong môn thực tập, dựng theo khuôn thư mục của môn. Bài báo 1 (System 3) là **thủ tục hành chính cấp xã/phường**: trợ lý chỉ phục vụ thủ tục do cấp xã/phường giải quyết, không phải mọi thủ tục.
 
 - **Nhóm:** Nhóm 7 (thực tập).
-- **Thành viên:** Trịnh Hoàng Nhân (tác giả liên hệ), Nguyễn Viết Hưng, Phạm Lê Thiên Dấn, Trương Long.
+- **Thành viên:** Trịnh Hoàng Nhân, Nguyễn Viết Hưng, Phạm Lê Thiên Dấn, Trương Long.
 - **Đơn vị:** Trường Đại học FPT, TP. Hồ Chí Minh.
 
 ### Cấu trúc
