@@ -1,7 +1,7 @@
-# Final submission
+# 08_final_submission
 
-| Tệp | Trạng thái |
-|---|---|
-| `final_paper.pdf` | Bản nộp, biên dịch trên Overleaf ngày 28/10/2026 từ `07_paper_draft/paper1_overleaf.zip`: 12 trang, nội dung hết trang 9, tài liệu tham khảo trang 10–12. Nguồn chuẩn là `07_paper_draft/latex/` |
-| `final_paper.docx` | Bản Word dựng tự động từ LaTeX (28/10/2026). Bố cục chỉ gần giống template; khi hai bản khác nhau, PDF từ Overleaf là bản đúng |
-| `presentation.pptx` | Làm sau |
+The final paper files are not published here until the camera-ready version.
+An earlier draft of this work is kept in the repository history at commit `e779b80`
+(`git show e779b80:08_final_submission/final_paper.pdf`).
+
+Bản nộp cuối chưa được đưa lên đây cho đến khi nộp bản cuối. Bản nháp trước đó nằm trong lịch sử repo, tại commit `e779b80`.
