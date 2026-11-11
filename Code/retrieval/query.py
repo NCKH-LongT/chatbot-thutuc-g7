@@ -158,7 +158,7 @@ COLLOQUIAL2 = [
     (r"(?:định danh(?: điện tử)?|vneid)(?: mức(?: độ)?) ?(?:2|02|hai)", "tài khoản định danh điện tử mức độ 02"),
 ]
 # 25/10 (vòng cải thiện 2, dev = real_v1 + real_v2): cùng ý như trên nhưng chịu được chữ chen giữa ("cấp lại GIÚP EM bằng tốt nghiệp",
-# "giấy khai sinh của tôi năm xưa người nhà KHAI SAI"), và các cách nói còn sót. Đứng TRƯỚC bảng trên. Tắt: S3_R2=0 (mặc định tắt tới khi chọn trên dev).
+# "giấy khai sinh của tôi ... KHAI SAI"), và các cách nói còn sót. Đứng TRƯỚC bảng trên. Tắt: S3_R2=0 (mặc định tắt tới khi chọn trên dev).
 COLLOQUIAL_R2 = [
     (r"sang tên(?:,? đổi chủ)? (?:xe|chiếc xe|ô tô|xe máy|mô tô)|đổi chủ (?:xe|chiếc xe|ô tô|xe máy|mô tô)", "đăng ký cấp chứng nhận đăng ký xe biển số xe"),
     (r"(?:cấp lại|xin cấp lại|làm lại|xin lại|xin cấp)(?: (?:giúp|cho) (?:em|tôi|mình|cháu|con))?(?: bản sao)? (?:văn bằng|bằng tốt nghiệp|bằng cấp|bằng thpt|bằng đại học|bằng cao đẳng|bằng trung cấp)"
