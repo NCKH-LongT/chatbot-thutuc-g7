@@ -1,0 +1,114 @@
+{
+ "min_one_direction_discordant_for_p_lt_0.05": 6,
+ "p_at_kmin": 0.03125,
+ "p_at_kmin_minus_1": 0.0625,
+ "t1": {
+  "n_answer": 59,
+  "bal_mde80_range": [
+   0.024,
+   0.127
+  ],
+  "e2e_mde80_prop_range": [
+   0.161,
+   0.246
+  ],
+  "e2e_mde80_questions_range": [
+   9.5,
+   14.5
+  ],
+  "per_pair": {
+   "off -> A": {
+    "bal_mde80": 0.104,
+    "e2e_mde80_prop": 0.246,
+    "equiv_margin_90": 0.227
+   },
+   "A -> AB": {
+    "bal_mde80": 0.024,
+    "e2e_mde80_prop": null,
+    "equiv_margin_90": 0.025
+   },
+   "A -> C": {
+    "bal_mde80": 0.097,
+    "e2e_mde80_prop": 0.228,
+    "equiv_margin_90": 0.087
+   },
+   "A -> AC": {
+    "bal_mde80": 0.079,
+    "e2e_mde80_prop": 0.203,
+    "equiv_margin_90": 0.049
+   },
+   "A -> ACname": {
+    "bal_mde80": 0.041,
+    "e2e_mde80_prop": 0.161,
+    "equiv_margin_90": 0.046
+   },
+   "A -> R": {
+    "bal_mde80": 0.127,
+    "e2e_mde80_prop": 0.233,
+    "equiv_margin_90": 0.401
+   },
+   "gate_only -> L_nb": {
+    "bal_mde80": 0.073,
+    "e2e_mde80_prop": null,
+    "equiv_margin_90": 0.048
+   },
+   "gate_only -> L_emb": {
+    "bal_mde80": 0.057,
+    "e2e_mde80_prop": null,
+    "equiv_margin_90": 0.065
+   }
+  }
+ },
+ "t2": {
+  "n_answer": 21,
+  "bal_mde80_range": [
+   0.133,
+   0.208
+  ],
+  "e2e_mde80_prop_range": [
+   0.357,
+   0.378
+  ],
+  "e2e_mde80_questions_range": [
+   7.5,
+   7.9
+  ],
+  "per_pair": {
+   "off -> A": {
+    "bal_mde80": 0.138,
+    "e2e_mde80_prop": null,
+    "equiv_margin_90": 0.214
+   },
+   "AB -> A2B": {
+    "bal_mde80": 0.133,
+    "e2e_mde80_prop": null,
+    "equiv_margin_90": 0.125
+   },
+   "off -> A2B": {
+    "bal_mde80": 0.208,
+    "e2e_mde80_prop": 0.378,
+    "equiv_margin_90": 0.282
+   },
+   "A2B -> R": {
+    "bal_mde80": 0.153,
+    "e2e_mde80_prop": 0.357,
+    "equiv_margin_90": 0.411
+   },
+   "A -> A2B": {
+    "bal_mde80": 0.152,
+    "e2e_mde80_prop": null,
+    "equiv_margin_90": 0.114
+   },
+   "gate_only -> L_nb": {
+    "bal_mde80": 0.169,
+    "e2e_mde80_prop": null,
+    "equiv_margin_90": 0.187
+   },
+   "gate_only -> L_emb": {
+    "bal_mde80": 0.168,
+    "e2e_mde80_prop": null,
+    "equiv_margin_90": 0.178
+   }
+  }
+ }
+}

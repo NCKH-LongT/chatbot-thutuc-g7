@@ -1,0 +1,43 @@
+{
+ "n_sample": 100,
+ "n_both_kept": 91,
+ "matrix_rows_A_cols_B": {
+  "answer": {
+   "answer": 13,
+   "clarify": 7,
+   "apologize": 2
+  },
+  "clarify": {
+   "answer": 1,
+   "clarify": 1,
+   "apologize": 0
+  },
+  "apologize": {
+   "answer": 0,
+   "clarify": 2,
+   "apologize": 65
+  }
+ },
+ "kappa3_reproduced": 0.685,
+ "kappa3_reported_in_agreement_txt": 0.685,
+ "refuse_vs_nonrefuse": {
+  "agree": 87,
+  "n": 91,
+  "pct": 0.956,
+  "both_refuse": 65,
+  "A_refuse_B_not": 2,
+  "B_refuse_A_not": 2,
+  "both_nonrefuse": 22,
+  "kappa": 0.887,
+  "kappa_ci95_boot2000": [
+   0.767,
+   0.974
+  ]
+ },
+ "sensitivity_skips_as_nonrefuse_100_items": {
+  "agree": 87,
+  "n": 100,
+  "kappa": 0.684
+ },
+ "caveat": "Both passes LLM-assisted; B's checker (project lead) had seen aggregate class proportions. Not human-human agreement."
+}

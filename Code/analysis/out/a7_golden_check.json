@@ -1,0 +1,118 @@
+{
+ "off_original": {
+  "stamp_git": "7e78438-dirty",
+  "settings": {
+   "S3_FOCUS": "0",
+   "S3_LETTER_STRIP": "0",
+   "S3_LEXICON2": "0",
+   "S3_NO_WARMUP": "1",
+   "S3_ORG_DEFAULT": "0",
+   "S3_PLANNER_MODE": "rules",
+   "S3_SCOPE_GATE": "0",
+   "S3_USE_LLM": "0",
+   "S3_WEAK_NAME": "0"
+  },
+  "excluded_unmapped": {
+   "dev": 80,
+   "holdout-used": 21,
+   "blind": 35
+  },
+  "blind_scored_n": 518,
+  "blind_classes": {
+   "answer": 384,
+   "clarify": 76,
+   "apologize": 58
+  },
+  "answer_rows_with_gold_code_for_top1": 381,
+  "behavior_correct": 400,
+  "top1": 274,
+  "refuse_correct": 52
+ },
+ "A_original": {
+  "stamp_git": "7e78438-dirty",
+  "settings": {
+   "S3_NO_WARMUP": "1",
+   "S3_PLANNER_MODE": "rules",
+   "S3_USE_LLM": "0"
+  },
+  "excluded_unmapped": {
+   "dev": 80,
+   "holdout-used": 21,
+   "blind": 35
+  },
+  "blind_scored_n": 518,
+  "blind_classes": {
+   "answer": 384,
+   "clarify": 76,
+   "apologize": 58
+  },
+  "answer_rows_with_gold_code_for_top1": 381,
+  "behavior_correct": 400,
+  "top1": 275,
+  "refuse_correct": 55
+ },
+ "off_rerun": {
+  "stamp_git": "92b0d6e-dirty",
+  "settings": {
+   "S3_FOCUS": "0",
+   "S3_LETTER_STRIP": "0",
+   "S3_LEXICON2": "0",
+   "S3_NO_WARMUP": "1",
+   "S3_ORG_DEFAULT": "0",
+   "S3_PLANNER_MODE": "rules",
+   "S3_SCOPE_GATE": "0",
+   "S3_USE_LLM": "0",
+   "S3_WEAK_NAME": "0"
+  },
+  "excluded_unmapped": {
+   "dev": 80,
+   "holdout-used": 21,
+   "blind": 35
+  },
+  "blind_scored_n": 518,
+  "blind_classes": {
+   "answer": 384,
+   "clarify": 76,
+   "apologize": 58
+  },
+  "answer_rows_with_gold_code_for_top1": 381,
+  "behavior_correct": 400,
+  "top1": 274,
+  "refuse_correct": 52
+ },
+ "A_rerun": {
+  "stamp_git": "92b0d6e-dirty",
+  "settings": {
+   "S3_NO_WARMUP": "1",
+   "S3_PLANNER_MODE": "rules",
+   "S3_USE_LLM": "0"
+  },
+  "excluded_unmapped": {
+   "dev": 80,
+   "holdout-used": 21,
+   "blind": 35
+  },
+  "blind_scored_n": 518,
+  "blind_classes": {
+   "answer": 384,
+   "clarify": 76,
+   "apologize": 58
+  },
+  "answer_rows_with_gold_code_for_top1": 381,
+  "behavior_correct": 400,
+  "top1": 275,
+  "refuse_correct": 55
+ },
+ "blind_total_before_exclusion": 553,
+ "identical_decisions_off": 518,
+ "identical_decisions_A": 518,
+ "off_to_A_behavior": {
+  "gain": 4,
+  "loss": 4,
+  "p": 1.0
+ },
+ "refuse_share": {
+  "of_518": 0.112,
+  "of_553_if_no_exclusion": 0.1049
+ }
+}
