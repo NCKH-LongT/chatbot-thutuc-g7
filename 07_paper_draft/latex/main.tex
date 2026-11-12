@@ -1,15 +1,17 @@
 \documentclass[runningheads]{llncs}
-\usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{textcomp}
-\usepackage{newtxtext}
-\usepackage[varvw]{newtxmath}
 \usepackage{graphicx}
+\usepackage{amsmath}
 \usepackage{booktabs}
-\usepackage{bbding}%
-\usepackage{xurl}%
-\usepackage[hidelinks]{hyperref}%
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\usepackage{color}
+\renewcommand\UrlFont{\color{blue}\rmfamily}
+\urlstyle{rm}
+\providecommand{\Description}[1]{}
+
 \newcommand{\BA}{\ensuremath{\mathrm{BA}_2}}
+\DeclareRobustCommand{\WRITE}[1]{\textbf{[WRITE #1]}}
 
 \begin{document}
 
@@ -19,7 +21,7 @@
 \author{Hoang Nhan Trinh\inst{1}\orcidID{0009-0003-1961-9022} \and
 Viet Hung Nguyen\inst{1}\orcidID{0009-0006-5603-6143} \and
 Le Thien Dan Pham\inst{1}\orcidID{0009-0006-3191-0965} \and
-Long Truong\inst{2}\textsuperscript{(\Envelope)}}
+Long Truong\inst{2}\thanks{Corresponding author.}}
 \authorrunning{H. N. Trinh et al.}
 \institute{Department of Artificial Intelligence, FPT University, Ho Chi Minh City, Vietnam\\
 \email{hoangnhan070206@gmail.com}, \email{hung2272006@gmail.com}, \email{phamlethiendan1@gmail.com} \and
@@ -60,21 +62,21 @@ accuracy) by +0.167 [0.095, 0.240], mainly through accurate refusals.  End-to-en
 
 \section{Related Work}
 
-\subsubsection{Vietnamese Public-Service and Legal QA:}
+\subsubsection{Vietnamese Public-Service and Legal QA.}
 
 {For public-service questions, Pham Duy and Le Thanh~~\cite{phamduy2023} locate legal text with BM25+, a PhoBERT-based encoder~~\cite{nguyen2020phobert} and a final cross-encoder. ViGPTQA~~\cite{vigptqa2023} adapts Vietnamese LLMs to question answering (QA), including law. Pham et al.~~\cite{hien2025} add an LLM to legal retrieval and refer out-of-scope questions to legal experts, an untested step. ALQAC 2021~~\cite{alqac2021} benchmarks retrieval and answering over Vietnamese law. Closest to us, VietPSLM~~\cite{le2025vietpslm} pairs a small language model with public-service QA resources. To our knowledge, none tests answering, clarifying and refusing on citizens' own questions, with a locked protocol.
 }
 
-\subsubsection{Abstention and Out-of-Scope Detection:}
+\subsubsection{Abstention and Out-of-Scope Detection.}
 
 {Abstaining cuts risk but also coverage~~\cite{elyaniv2010,geifman2017}
 , pricing errors against rejections~~\cite{chow1970}. Post hoc, maximum softmax probability~~\cite{hendrycks2017} flags errors and out-of-distribution inputs. QA calibrators guide abstention under domain shift~~\cite{kamath2020}, whereas out-of-scope queries trip intent classifiers~~\cite{larson2019}. LLM abstention has a survey~~\cite{wen2025}, and clarifying is a third path~~\cite{aliannejadi2019}.}
 
-\subsubsection{Who Decides:}
+\subsubsection{Who Decides.}
 
 {The organizing question is who decides. In RAG~~\cite{lewis2020} and self-reflective RAG~~\cite{asai2024} the model decides; in guardrails, rails written by developers do~~\cite{rebedea2023}. Rules remain common in industrial information extraction~~\cite{chiticariu2013}. An e-government pipeline escalates to humans~~\cite{kaplan2026}, and a benchmark scores answering and admitting ignorance separately~~\cite{samson2026}.}
 
-\subsubsection{Evaluation Practice and LLM-Assisted Labels:}
+\subsubsection{Evaluation Practice and LLM-Assisted Labels.}
 
 {NLP has seen calls for preregistration~~\cite{vanmiltenburg2021}. One split can flip conclusions~~\cite{gorman2019}, tuning effort merits reporting~~\cite{dodge2019}, and adaptive holdout reuse overstates accuracy~~\cite{dwork2015}. LLMs can annotate better than crowd workers~~\cite{gilardi2023}, if validated~~\cite{pangakis2023,reiss2023}, a caveat for our LLM-assisted labels.}
 
@@ -82,26 +84,7 @@ accuracy) by +0.167 [0.095, 0.240], mainly through accurate refusals.  End-to-en
 
 \subsubsection{Task.}
 
-{The system returns an answer with a procedure ID, a clarification with candidate procedures, or a reasoned refusal, following written annotation guidelines. Answer is assigned when one clear commune-level procedure (or equivalent pair) is needed. Clarification is requested when multiple different procedures can be used or if only province-specific versions exist but no province is mentioned. Refusal covers missing or out-of-scope procedures, submitted-file status, complaints, petitions, legal questions, penalties, police internal matters and non-administrative requests (see Table~\ref{tab:examples} for examples).}
-
-\begin{table}[tb]
-\caption{Constructed examples illustrating the annotation guidelines, not drawn from evaluation data; columns show expected decisions and responsible components by question}\label{tab:examples}
-\centering\scriptsize
-\begin{tabular}{@{}l p{7.9cm} p{3.0cm}@{}}
-\toprule
-Label & Constructed question (English) & Decision; component \\
-\midrule
-answer & ``Dear ward office, the chip-based citizen ID card I had went missing. Which papers must I bring to replace it? Thanks.'' &
-\textit{ID-card reissue; stripping, lexicon} \\
-answer & ``What should I prepare to renew my ID card, and is renewing at 40 required by law?'' & \textit{Answer; law pattern yields} \\
-clarify & ``What paperwork does my newborn need?'' & \textit{Birth or residence registration} \\
-refuse & ``The date on my appointment slip has passed and my ID card is not ready. When do I get it?'' & \textit{Own-file status} \\
-refuse & ``How much will I be fined for a late temporary-absence declaration?'' & \textit{Law and penalties} \\
-refuse & ``My father, a non-commissioned police officer, retires soon. Which allowances is he entitled to?'' & \textit{Police internal} \\
-refuse & ``My new employer wanted a judicial record certificate from me. Where can I request one?'' & \textit{Not in the data} \\
-\bottomrule
-\end{tabular}
-\end{table}
+{The system returns an answer with a procedure ID, a clarification with candidate procedures, or a reasoned refusal, following written annotation guidelines. Answer is assigned when one clear commune-level procedure (or equivalent pair) is needed. Clarification is requested when multiple different procedures can be used or if only province-specific versions exist but no province is mentioned. Refusal covers missing or out-of-scope procedures, submitted-file status, complaints, petitions, legal questions, penalties, police internal matters and non-administrative requests.}
 
 \subsubsection{Data.}
 
@@ -123,7 +106,7 @@ refuse & ``My new employer wanted a judicial record certificate from me. Where c
 
 {The selection rule was documented before each run. We selected the dev configuration with the highest \BA{} subject to E2E $\geq$ the rule layer, breaking ties by E2E. A+B was selected for round 1 and A2+B for round 2; on dev, A2+B tied A2 at \BA{}=0.916 but won the E2E tie-break (88 vs 87 answers). This estimate is optimistic, as the rules were tuned on these same questions. The prespecified round-1 comparisons were base against each variant and the selected configuration using Wilson intervals. Round 2 prespecified three main McNemar tests: A+B vs A2+B, base vs A2+B and A2+B vs R, other comparisons were descriptive.}
 
-{There were three protocol deviations. (i) The RAG base (R) was added after running T1. Its prompt was chosen on dev and frozen at \texttt{65b55af} before its one T1 run. Comparisons with R were descriptive on T1, where R was prespecified for T2. (ii) Post-hoc ablations alongside learned gates were evaluated after internal review with frozen code. (iii) The team-written set was initially run using the pre-freeze tree at \texttt{7e78438}, then run again on 27 October using the round two frozen code without round-2 rule (\texttt{92b0d6e}; \texttt{4bb4cfc}). The same decisions were made for all 518 questions.}
+{There were three protocol deviations. (i) The RAG baseline (R) was added after running T1. Its prompt was chosen on dev and frozen at \texttt{65b55af} before its one T1 run. Comparisons with R were descriptive on T1, where R was prespecified for T2. (ii) Post-hoc ablations alongside learned gates were evaluated after internal review with frozen code. (iii) The team-written set was initially run using the pre-freeze tree at \texttt{7e78438}, then run again on 27 October using the round two frozen code without round-2 rule (\texttt{92b0d6e}; \texttt{4bb4cfc}). The same decisions were made for all 518 questions.}
 
 \subsection{Metrics and Statistics}\label{sec:metrics}
 
@@ -157,7 +140,7 @@ U(c) = 100\,\frac{\mathit{correct} - c\cdot\mathit{wrong}}{n}, \qquad c^* = \fra
 {In round 2, A2 added one switch, developed after the T1 run to address A's remaining errors on the dev set (595 questions). Additionally, nine lexicon patterns allowed for flexibility with insertions. Explicit citizen requests override procedures inferred from life events. New refusals targeted colloquial status enquiries, officer compensation, personal loans, electricity disputes and deliberate staff delays. Answers followed the common version for all provinces, as specified in the guideline.}
 
 \begin{table}[tb]
-\caption{Excerpts from rule layer. Gate: regexes on lowercased diacritic-stripped text. Lexicon entries contain no diacritics. $n$ = pattern count per category. $a$ indicates a question in terms of procedure. A keeps 22 of the 25 override patterns; 3 dropped merely state intention. Only 5 generic processing-time patterns will override status}\label{tab:rules}
+\caption{Excerpts from rule layer. Gate: regexes on lowercased diacritic-stripped text. $n$ = pattern count per category. $a$ indicates a question in terms of procedure. A keeps 22 of the 25 override patterns; 3 dropped merely state intention. Only 5 generic processing-time patterns will override status}\label{tab:rules}
 \centering\scriptsize
 \begin{tabular}{@{}l r p{5.6cm} p{3.6cm}@{}}
 \toprule
@@ -172,8 +155,7 @@ not in data & 35 & \texttt{ly lich tu phap}, \texttt{(?:doi|cap lai|cap|lam) ho 
 info & 14 & \texttt{loi ich}, \texttt{so sanh} & benefits, comparison \\
 override & 22 & \texttt{(?:giay to|ho so) (?:gi|nao|\ldots)}, \texttt{le phi}, \texttt{quy trinh} & which papers, fee, process$^a$ \\
 \midrule
-Lexicon & & \texttt{can cuoc cong dan|cccd} $\rightarrow$ \texttt{the can cuoc} & ID card renamed (2023 law) \\
- & & \texttt{(?:nhap|chuyen|dang ky|\ldots)(?: so)? ho khau} $\rightarrow$ \texttt{dang ky thuong tru} & household book abolished (2020) \\
+
 \bottomrule
 \end{tabular}
 \end{table}
@@ -191,7 +173,7 @@ Lexicon & & \texttt{can cuoc cong dan|cccd} $\rightarrow$ \texttt{the can cuoc} 
 
 \subsection{Experimental Setup}\label{sec:setup}
 
-{The 13 October 2026 snapshot of the data was used for all runs. We used one laptop with a thermal guard and RTX 4050 NVIDIA GeForce (6 GB). Base, A and A2 are non-LLM based. Ollama served the 4B model with \texttt{Q4\_K\_M} quantization, temperature 0 and JSON-schema output. C had 60-token limit and 20 s timeout. R had 40-token limit and 60 s timeout. Any invalid procedure numbers from R counted as refusals. All thresholds were tuned on dev only. B alone used -3.5 and 0.5; B over A used -8.0 and 2.0. Naive Bayes log-odds with 1.025 (T1) and 1.516 (T2). Embedding gate: $\lambda=0.001$, cut-off 0.05 and fivefold CV. Tuning budgets differed ~\cite{dodge2019}. Rules were tuned extensively. B had a threshold grid and C had one prompt tuned. R had three prompts tuned with v2 chosen on dev (\BA{} 0.445 versus 0.343 and 0.432). L had one threshold and a constant. The software and summaries were created using the assistant in Sect.~\ref{sec:data}. All commands and outputs were committed.}
+{The 13 October 2026 snapshot of the data was used for all runs. We used one laptop with a thermal guard and RTX 4050 NVIDIA GeForce (6 GB). Base, A and A2 are non-LLM based. Ollama served the 4B model with \texttt{Q4\_K\_M} quantization, temperature 0 and JSON-schema output. C had 60-token limit and 20 s timeout. R had 40-token limit and 60 s timeout. Any invalid procedure numbers from R counted as refusals. All thresholds were tuned on dev only. Tuning budgets differed ~\cite{dodge2019}. Rules were tuned extensively. B had a threshold grid and C had one prompt tuned. R had three prompts tuned with v2 chosen on dev (\BA{} 0.445 versus 0.343 and 0.432). L had one threshold and a constant. The software and summaries were created using the assistant in Sect.~\ref{sec:data}. All commands and outputs were committed.}
 
 \section{Results}\label{sec:results}
 
@@ -199,11 +181,9 @@ Lexicon & & \texttt{can cuoc cong dan|cccd} $\rightarrow$ \texttt{the can cuoc} 
 
 {The frozen base achieves 77.2\% behavior accuracy (95\% CI: 73--81\%) on 518 team-written questions. In real-world questions, accuracy falls to 56.0\% (50--62\%) on dev and 56.5\% (51--62\%) on T1. \BA{} drops from 0.852 to 0.636 and 0.647, respectively. This decline is mainly due to the difference in question type: must-refuse cases account for 78\% (dev), 79\% (T1) and 92\% (T2) compared with only 11\% of team-written questions. Top-1 accuracy on answerable questions drops from 274/381 (71.9\%) to 7/55 (12.7\%) on dev and 20/59 (33.9\%) on T1. Correct refusals cover only about half of these cases: 116/220 (dev) and 132/248 (T1), versus 52/58 (team-written). On team-written questions, the rule layer shows no net change (+4/-4). Thus, team-written questions hide both the problem and the remedy.}
 
-{On topical questions, we achieve top-1 accuracy for only 5/42 on dev versus 17/48 on T1. However, this gap lies in ranking rather than deciding. While base answer-decision rates comparable: 30/42 on dev and 39/48 on T1, the correct procedure enter the top-5 in only 9/42 dev case compared to 21/48 on T1. T1 labels are not more lenient, only 5/17 correct answer have multiple procedures, while first-code accuracy remains 16/48. Furthermore 48/59 T1 first gold codes also appear in dev. The phrasing of the question may be a factor, as well as two-pass labeling approach. However, this has not been tested.}
-
 \subsection{RQ2: The Rule Layer under Declared Comparisons}
 
-{On T1 (Tables~\ref{tab:main} and~\ref{tab:paired}), the rule layer raises \BA{} from 0.647 to 0.814 ($\Delta$ \BA +0.167 [0.095, 0.240]). E2E increases from 19 to 35/59 ($p$ = 0.004). The number of correct refusals increases from 132 to 219/248, while correct answer decisions stay about the same (45 vs 44). The declared round-1 selection A+B over base gains +0.175 [0.104, 0.247]. This improvement is still visible without 11 near-duplicates (from 0.651 to 0.810). Both random stratum and MPS rise from 0.512 to 0.859 and 0.618 to 0.875 respectively. Moreover, Binh Dinh also improves from 0.649 to 0.751, which touches zero with its interval [-0.001, 0.206]. Under second-pass labels (91 questions), 24 are gained and 1 is lost.}
+{On T1 (Tables~\ref{tab:main} and~\ref{tab:paired}), the rule layer raises \BA{} from 0.647 to 0.814 ($\Delta$ \BA +0.167 [0.095, 0.240]). E2E increases from 19 to 35/59 ($p$ = 0.004). The number of correct refusals increases from 132 to 219/248, while correct answer decisions stay about the same (45 vs 44). The declared round-1 selection A+B over base gains +0.175 [0.104, 0.247]. Both random stratum and MPS rise from 0.512 to 0.859 and 0.618 to 0.875 respectively. Moreover, Binh Dinh also improves from 0.649 to 0.751, which touches zero with its interval [-0.001, 0.206]. Under second-pass labels (91 questions), 24 are gained and 1 is lost.}
 
 {Declared T2 base $\rightarrow$ A2+B comparison raises \BA{} +0.158 [0.009, 0.304], with 129 gains/9 losses. Descriptively, Rule layer A raised refusals (175 $\rightarrow$ 297/335), with 125 gains/5 losses; with $\Delta$ \BA{} = +0.135 [0.033, 0.228], and E2E increases 5 $\rightarrow$ 9/21 but not resolvable ($p$ = 0.125). Round 2 showed no detectable gain: A2+B gained 25 and lost zero behavior decisions against A on dev. On T2, it tied A+B in behavior decisions (+3/-3), with $\Delta$ \BA{} =+0.046 [-0.048, 0.143]. No E2E gain was resolved on T2 (8 versus 10 correct, $p$ = 0.625), and effects of $\pm0.125$ not ruled out, a range as large as the round-1 gain.}
 
@@ -234,7 +214,7 @@ A2\,+\,B (round-2 selection) & -- & -- & -- & -- & 0.729 & 297 & 10 & 20.0 \\
 \end{table}
 
 \begin{table}[tb]
-\caption{Paired differences $X \to Y$. P = primary round 2 comparison (McNemar's test). D = round 1 base--variant comparisons using Wilson intervals (See Table~\ref{tab:main} for other variations). d = descriptive; h = post-hoc; NB = Naive Bayes gate; emb = embedding gate; clar = R's clarification responses: treated as refusals. $\Delta$ \BA{} = paired 95\% bootstrapped confidence intervals after the runs. $m$ = equivalence margin for the 90\% interval, showed only when the 95\% interval includes 0. Behavior and E2E = gains/losses from Y, $p$ = exact McNemar tests}\label{tab:paired}
+\caption{Paired differences $X \to Y$. P = primary round 2 comparison (McNemar's test). D = round 1 base--variant comparisons using Wilson intervals (See Table~\ref{tab:main} for other variations). d = descriptive; clar = R's clarification responses: treated as refusals. $\Delta$ \BA{} = paired 95\% bootstrapped confidence intervals after the runs. $m$ = equivalence margin for the 90\% interval, showed only when the 95\% interval includes 0. Behavior and E2E = gains/losses from Y, $p$ = exact McNemar tests}\label{tab:paired}
 \centering\scriptsize\setlength{\tabcolsep}{3pt}%
 \begin{tabular}{@{}ll c r c l l@{}}
 \toprule
@@ -247,15 +227,11 @@ T1 & A $\rightarrow$ A\,+\,C (intent) & d & $+0.002$ [$-0.054$, $+0.057$] & 0.04
 T1 & A $\rightarrow$ A\,+\,C (name) & d & $+0.019$ [$-0.006$, $+0.051$] & 0.046 & $+4/{-3}$ (1.000) & 35$\rightarrow$39 ($+8/{-4}$, 0.388) \\
 T1 & Always refuse $\rightarrow$ R & d & $-0.011$ [$-0.082$, $+0.060$] & 0.071 & -- & -- \\
 T1 & A $\rightarrow$ R (clar.\ as ref.) & d & $-0.087$ [$-0.176$, $-0.002$] & -- & $+31/{-39}$ (0.403) & -- \\
-T1 & Gate only $\rightarrow$ L (NB) & h & $-0.005$ [$-0.057$, $+0.045$] & 0.048 & $+19/{-15}$ (0.608) & 15$\rightarrow$14 ($+2/{-3}$, 1.000) \\
-T1 & Gate only $\rightarrow$ L (emb.) & h & $+0.031$ [$-0.008$, $+0.071$] & 0.065 & $+22/{-13}$ (0.175) & 15$\rightarrow$17 ($+2/{-0}$, 0.500) \\
 \midrule
 T2 & A\,+\,B $\rightarrow$ A2\,+\,B & P & $+0.046$ [$-0.048$, $+0.143$] & 0.125 & $+3/{-3}$ (1.000) & 8$\rightarrow$10 ($+3/{-1}$, 0.625) \\
 T2 & Base $\rightarrow$ A2\,+\,B & P & $+0.158$ [$+0.009$, $+0.304$] & -- & $+129/{-9}$ ($2\cdot10^{-28}$) & 5$\rightarrow$10 ($+7/{-2}$, 0.180) \\
 T2 & A2\,+\,B $\rightarrow$ R & P & $-0.316$ [$-0.427$, $-0.211$] & -- & $+19/{-122}$ ($1\cdot10^{-19}$) & 10$\rightarrow$4 ($+1/{-7}$, 0.070) \\
 T2 & Always refuse $\rightarrow$ R & d & $-0.087$ [$-0.175$, $+0.015$] & 0.163 & -- & -- \\
-T2 & Gate only $\rightarrow$ L (NB) & h & $-0.088$ [$-0.204$, $+0.029$] & 0.187 & $+31/{-15}$ (0.026) & 5$\rightarrow$2 ($+0/{-3}$, 0.250) \\
-T2 & Gate only $\rightarrow$ L (emb.) & h & $-0.080$ [$-0.199$, $+0.039$] & 0.178 & $+34/{-13}$ (0.003) & 5$\rightarrow$2 ($+0/{-3}$, 0.250) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -269,12 +245,6 @@ T2 & Gate only $\rightarrow$ L (emb.) & h & $-0.080$ [$-0.199$, $+0.039$] & 0.17
 {After testing three prompts on dev, the RAG baseline (R) with the selected v2 prompt scored \BA{} of 0.489 (T1) and 0.413 (T2), no better than always-refuse ($\Delta =$ -0.011 [-0.082, 0.060] and -0.087 [-0.175, 0.015], respectively). This was mainly due to clarifications on must-refuse questions (118 on T1; 108 on T2). Treating clarification as refusals raises \BA{} to 0.727 and 0.574, still below the rule layer on T1. Clarification remained hardly evaluated: no T1 setup exceeded one of six cases, while R reached 4/7 on T2 but generated 108 clarifications.}
 
 {At 80\% power (59 answerable on T1 and 21 on T2), only large effects were detectable: $\Delta$ \BA{} = 0.04--0.13 (T1) and 0.13--0.21 (T2). T1 required a 10--15 question E2E difference, while T2 McNemar test required at least 6 discordant pairs in the same direction for $p<0.05$.}
-
-\subsection{What the Rules Do (Post Hoc)}
-
-{In post hoc ablation, removing the gate reduced correct refusals by 70 (T1) and 62 (T2), but added 4 and 2 E2E answers. Removing the lexicon cost 17 (T1) and 4 (T2) E2E; removing the focus cost 7 (T1); other rules changed at most one question each. The gate alone yields +86/-6 behavior on T1 but loses 4 E2E answers; other rules recovered (+22/-2).}
-
-{Refusal rates were high in both sources: 78.5\% for MPS and 79.9\% for Binh Dinh (T1). The provincial portal alone showed 85--89\% refusal rates across all random strata and test sets. Gate gains were greatest in MPS (+67/-5 vs +19/-1 on T1; +93/-3 vs +19/-0 on T2). Correct refusals gained include new refusal types: not in data, law, petition and police-internal in MPS versus not in data, complaint and status in Binh Dinh. Among the cases newly refused correctly by A, police-internal queries accounted for about 13\% in both T1 and T2 (12/89 and 16/124, respectively).}
 
 \subsection{RQ4: Deployment Utility}
 
@@ -305,7 +275,7 @@ T2 & L embedding & 2/3/2/14 & --/0/1/6 & --/20/2/313 & 8.0 & 0.09 & $-5.8$ \\
 
 \section{Discussion and Limitations}\label{sec:discussion}
 
-\subsubsection{What the Protocol caught.}
+\subsubsection{What the Protocol Caught.}
 
 {Without the protocol, two wrong conclusions would stand: the base system works (team-written set) and the second rule round helps (dev). A2+B changed A's decision or top procedure at similar rates: 6.2\% on dev, 5.2\% on T2. Strictly, with answers credited only for the right procedure, dev moved +30/$-$0 and T2 +4/$-$4. By behavior, the moves were +25/$-$0 and +4/$-$4. This pattern suggests rules tuned to particular phrasings. Labels produced by a different model and the small answer class may also contribute.}
 
@@ -319,24 +289,24 @@ T2 & L embedding & 2/3/2/14 & --/0/1/6 & --/20/2/313 & 8.0 & 0.09 & $-5.8$ \\
 (i)~{The study covers a single domain, a single language and a single data snapshot.} 
 (ii)~{The test sets contain 59 and 21 answer but only 6 and 7 clarify questions, so only large differences are detectable. Clarification is part of the task yet hardly evaluated, so we draw no conclusion about it.} 
 (iii)~{Our labels had LLM help: for dev and T1, the rule-writing assistant produced them after reading every T1 question. Its notion of scope may thus be built into the gate~~\cite{pangakis2023,reiss2023}. On T2, labeled without it, the gain persists (+125/$-$5). Circularity thus seems an unlikely full account, though shared guideline scope cannot be excluded. Until humans label independently, gains hold only under our guideline.} 
-(iv)~{Neither data source is a commune office. The gate gain is concentrated on the ministry portal, and categories such as police-internal questions are likely rarer at a commune office. The share of questions to refuse there is unknown.} 
+(iv)~{Neither data source is a commune office. Categories such as police-internal questions are likely rarer at a commune office. The share of questions to refuse there is unknown.} 
 (v)~{Our locks are commits in a private development repository, so they carry no external timestamps.
 } 
-(vi)~{The rules received far more tuning effort than other components, so our claims about the reranker (B), LLM reader (C), learned gates (L) and RAG base (R) concern these lightly tuned bases only. We did not run a fine-tuned PhoBERT gate~~\cite{nguyen2020phobert} or a few-shot or calibrated LLM gate. Ablations and learned gates are post hoc.} 
+(vi)~{The rules received far more tuning effort than other components, so our claims about the reranker (B), LLM reader (C), learned gates (L)and RAG baseline (R) concern these lightly tuned baselines only. We did not run a fine-tuned PhoBERT gate~~\cite{nguyen2020phobert} or a few-shot or calibrated LLM gate. Ablations and learned gates are post hoc.} 
 (vii)~{The LLM components use a single run at
 temperature 0 and one quantized model.} 
 (viii)~{We report no risk-coverage curve, and the source datasets state no license.}
 
 \section{Conclusion}\label{sec:conclusion}
 
-{We investigated an administrative assistant limited to commune-level procedures. The main challenge in real-world question is deciding whether to answer. We evaluated the AI-assisted rule layer under a locked, run-once protocol. It contains 19 lexicon patterns and seven gate categories. Correct E2E answers nearly double on T1 (19 to 35/59). The refusal improvement was maintained on T2. Round 2 improved dev result but showed no detectable gain on unseen data. None of the four alternatives detectably improved either \BA{} or E2E over the rule layer. Future work should explore confidence-based answering with human confirmation, independent human labeling of a stratified subset, improved learning-based components and a third locked test set..}
+{We investigated an administrative assistant limited to commune-level procedures. The main challenge in real-world question is deciding whether to answer. We evaluated the AI-assisted rule layer under a locked, run-once protocol. Correct E2E answers nearly double on T1 (19 to 35/59). The refusal improvement was maintained on T2. Round 2 improved dev result but showed no detectable gain on unseen data. None of the four alternatives detectably improved either \BA{} or E2E over the rule layer.}
 
 \subsubsection{Ethics and Data Availability.}
 
-{Procedure records are publicly available and does not contain any private data. We took questions from public datasets and cards which did not have license details. Any personal data was masked before labeling. This paper contains no names / identifiers and no human-participant data collected. Question content will not be redistributed. We release code, IDs, source pointers of 958 labeled questions, SHA-256 hashes of the locked test files, guidelines, labels, and per-question run decisions at \url{https://github.com/NCKH-LongT/chatbot-thutuc-g7/tree/main/Code}.}
+{Procedure records are publicly available and does not contain any private data. We took questions from public datasets and cards which did not have license details. Any personal data was masked before labeling. This paper contains no names / identifiers and no human-participant data collected. Question content will not be redistributed. We release code, IDs, source pointers of 958 labeled questions, SHA-256 hashes of the locked test files, labels, and per-question run decisions at \url{https://github.com/NCKH-LongT/chatbot-thutuc-g7/tree/main/Code}.}
 
 {Before publication, we revised five commit messages without altering the trees or dates. Old-to-new hashes mapping is in the repository.}
-{\emph{Use of AI.} The authors wrote the paper without generative AI assistance. Claude Opus 5.5 (Anthropic) is only used to build the software including rule layer and labeling support (Sect.~\ref{sec:data}). Authors take full responsibility for the content.}
+{\emph{Use of AI.} The authors wrote the paper without generative AI assistance. Claude Opus 5.5 (Anthropic) was used only to build the software including rule layer and labeling support (Sect.~\ref{sec:data}). Authors take full responsibility for the content.}
 
 \begin{credits}
 \subsubsection{\ackname} 
