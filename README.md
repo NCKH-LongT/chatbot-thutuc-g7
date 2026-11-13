@@ -1,8 +1,8 @@
-# Answer, Clarify or Refuse? A Locked, Run-Once Evaluation on Real Vietnamese Citizen Questions, with a Rule-Layer Case Study
+# Evaluating Three-Way scope decisions on questions from Vietnamese citizens under a Locked Protocol
 
 Code, labels, per-question results and analysis scripts that accompany the paper.
 
-**Authors:** Hoang Nhan Trinh, Viet Hung Nguyen, Le Thien Dan Pham (Department of Artificial Intelligence, FPT University, Ho Chi Minh City, Vietnam) and Long Truong (FPT University, Ho Chi Minh City, Vietnam).
+**Authors:** Hoang Nhan Trinh, Viet Hung Nguyen, Le Thien Dan Pham (Department of Artificial Intelligence, FPT University, Ho Chi Minh City, Vietnam) and Long Truong (corresponding author), Anh Duy Bui, Ngoc Minh Chau Hoang (Faculty of Software Engineering, FPT University, Ho Chi Minh City, Vietnam).
 
 ## For reviewers (English)
 
