@@ -21,12 +21,17 @@
 \author{Hoang Nhan Trinh\inst{1}\orcidID{0009-0003-1961-9022} \and
 Viet Hung Nguyen\inst{1}\orcidID{0009-0006-5603-6143} \and
 Le Thien Dan Pham\inst{1}\orcidID{0009-0006-3191-0965} \and
-Long Truong\inst{2}\thanks{Corresponding author.}}
+Long Truong\inst{2}\orcidID{0009-0007-0928-2015}\thanks{Corresponding author.} \and
+Duy Anh Bui\inst{2} \and
+Ngoc Minh Chau Hoang\inst{2}}
+
 \authorrunning{H. N. Trinh et al.}
+
 \institute{Department of Artificial Intelligence, FPT University, Ho Chi Minh City, Vietnam\\
-\email{hoangnhan070206@gmail.com}, \email{hung2272006@gmail.com}, \email{phamlethiendan1@gmail.com} \and
+\email{hoangnhan070206@gmail.com}, \email{hung2272006@gmail.com}, \email{phamlethiendan1@gmail.com}
+\and
 Faculty of Software Engineering, FPT University, Ho Chi Minh City, Vietnam\\
-\email{longt5@fpt.edu.vn}}
+\email{longt5@fpt.edu.vn}, \email{anhduy290605@gmail.com}, \email{chauhnmss181219@fpt.edu.vn}}
 
 \maketitle
 
@@ -204,7 +209,7 @@ R: RAG, LLM decides$^\dagger$ & 0.489 & 104 & 28 & 43.8 & 0.413 & 197 & 4 & 10.5
 L: naive Bayes gate$^*$ & 0.765 & 224 & 14 & 21.9 & 0.579 & 308 & 2 & 6.9 \\
 L: embedding gate$^*$ & 0.801 & 225 & 17 & 25.4 & 0.586 & 313 & 2 & 8.0 \\
 Gate only$^*$ & 0.770 & 218 & 15 & 20.8 & 0.666 & 287 & 5 & 9.1 \\
-A: rule layer & 0.814 & 219 & 35 & 45.5 & 0.705 & 297 & 9 & 19.6 \\
+\bfseries A: rule layer & \bfseries 0.814 & \bfseries 219 & \bfseries 35 & \bfseries 45.5 & \bfseries 0.705 & \bfseries 297 & \bfseries 9 & \bfseries 19.6 \\
 A\,+\,C (intent and name) & 0.817 & 237 & 32 & 58.2 & -- & -- & -- & -- \\
 A\,+\,C (name only) & 0.834 & 216 & 39 & 47.0 & -- & -- & -- & -- \\
 A\,+\,B (round-1 selection) & 0.823 & 219 & 36 & 46.2 & 0.683 & 298 & 8 & 17.4 \\
@@ -220,7 +225,7 @@ A2\,+\,B (round-2 selection) & -- & -- & -- & -- & 0.729 & 297 & 10 & 20.0 \\
 \toprule
 Set & X $\rightarrow$ Y & Role & $\Delta$\BA\ [95\% CI] & $m$ & Behavior $+/-$ ($p$) & E2E X$\rightarrow$Y ($+/-$, $p$) \\
 \midrule
-T1 & Base $\rightarrow$ A & D & $+0.167$ [$+0.095$, $+0.240$] & -- & $+96/{-10}$ ($9\cdot10^{-19}$) & 19$\rightarrow$35 ($+22/{-6}$, 0.004) \\
+\bfseries T1 & \bfseries Base $\rightarrow$ A & \bfseries D & $+0.167$ [$+0.095$, $+0.240$] & -- & $+96/{-10}$ ($9\cdot10^{-19}$) & 19$\rightarrow$35 ($+22/{-6}$, 0.004) \\
 T1 & Base $\rightarrow$ A\,+\,B & D & $+0.175$ [$+0.104$, $+0.247$] & -- & $+96/{-9}$ ($2\cdot10^{-19}$) & 19$\rightarrow$36 ($+23/{-6}$, 0.002) \\
 T1 & A $\rightarrow$ C & d & $-0.029$ [$-0.098$, $+0.038$] & 0.087 & $+28/{-35}$ (0.450) & 35$\rightarrow$25 ($+7/{-17}$, 0.064) \\
 T1 & A $\rightarrow$ A\,+\,C (intent) & d & $+0.002$ [$-0.054$, $+0.057$] & 0.049 & $+25/{-10}$ (0.017) & 35$\rightarrow$32 ($+8/{-11}$, 0.648) \\
@@ -229,7 +234,7 @@ T1 & Always refuse $\rightarrow$ R & d & $-0.011$ [$-0.082$, $+0.060$] & 0.071 &
 T1 & A $\rightarrow$ R (clar.\ as ref.) & d & $-0.087$ [$-0.176$, $-0.002$] & -- & $+31/{-39}$ (0.403) & -- \\
 \midrule
 T2 & A\,+\,B $\rightarrow$ A2\,+\,B & P & $+0.046$ [$-0.048$, $+0.143$] & 0.125 & $+3/{-3}$ (1.000) & 8$\rightarrow$10 ($+3/{-1}$, 0.625) \\
-T2 & Base $\rightarrow$ A2\,+\,B & P & $+0.158$ [$+0.009$, $+0.304$] & -- & $+129/{-9}$ ($2\cdot10^{-28}$) & 5$\rightarrow$10 ($+7/{-2}$, 0.180) \\
+\bfseries T2 & \bfseries Base $\rightarrow$ A2\,+\,B & \bfseries P & $+0.158$ [$+0.009$, $+0.304$] & -- & $+129/{-9}$ ($2\cdot10^{-28}$) & 5$\rightarrow$10 ($+7/{-2}$, 0.180) \\
 T2 & A2\,+\,B $\rightarrow$ R & P & $-0.316$ [$-0.427$, $-0.211$] & -- & $+19/{-122}$ ($1\cdot10^{-19}$) & 10$\rightarrow$4 ($+1/{-7}$, 0.070) \\
 T2 & Always refuse $\rightarrow$ R & d & $-0.087$ [$-0.175$, $+0.015$] & 0.163 & -- & -- \\
 \bottomrule
@@ -258,7 +263,7 @@ T2 & Always refuse $\rightarrow$ R & d & $-0.087$ [$-0.175$, $+0.015$] & 0.163 &
 Set & Configuration & gold answer & gold clarify & gold refuse & Prec. & $c^*$ & $U(1)$ \\
 \midrule
 T1 & Base & 19/26/3/11 & --/4/0/2 & --/114/2/132 & 11.7 & 0.13 & $-39.9$ \\
-T1 & A & 35/9/3/12 & --/4/0/2 & --/29/0/219 & 45.5 & 0.83 & $-2.2$ \\
+\bfseries T1 & \bfseries A & \bfseries 35/9/3/12 & \bfseries --/4/0/2 & \bfseries --/29/0/219 & \bfseries 45.5 & \bfseries 0.83 & \bfseries\boldmath $-2.2$ \\
 T1 & A\,+\,B & 36/9/2/12 & --/4/0/2 & --/29/0/219 & 46.2 & 0.86 & $-1.9$ \\
 T1 & A\,+\,C (intent) & 32/8/1/18 & --/4/1/1 & --/11/0/237 & 58.2 & 1.39 & $+2.9$ \\
 T1 & R & 28/5/23/3 & --/5/1/0 & --/26/118/104 & 43.8 & 0.78 & $-2.6$ \\
@@ -292,7 +297,7 @@ T2 & L embedding & 2/3/2/14 & --/0/1/6 & --/20/2/313 & 8.0 & 0.09 & $-5.8$ \\
 (iv)~{Neither data source is a commune office. Categories such as police-internal questions are likely rarer at a commune office. The share of questions to refuse there is unknown.} 
 (v)~{Our locks are commits in a private development repository, so they carry no external timestamps.
 } 
-(vi)~{The rules received far more tuning effort than other components, so our claims about the reranker (B), LLM reader (C), learned gates (L)and RAG baseline (R) concern these lightly tuned baselines only. We did not run a fine-tuned PhoBERT gate~~\cite{nguyen2020phobert} or a few-shot or calibrated LLM gate. Ablations and learned gates are post hoc.} 
+(vi)~{The rules received far more tuning effort than other components, so our claims about the reranker (B), LLM reader (C), learned gates (L) and RAG baseline (R) concern these lightly tuned baselines only. We did not run a fine-tuned PhoBERT gate~~\cite{nguyen2020phobert} or a few-shot or calibrated LLM gate. Ablations and learned gates are post hoc.} 
 (vii)~{The LLM components use a single run at
 temperature 0 and one quantized model.} 
 (viii)~{We report no risk-coverage curve, and the source datasets state no license.}
@@ -306,7 +311,7 @@ temperature 0 and one quantized model.}
 {Procedure records are publicly available and does not contain any private data. We took questions from public datasets and cards which did not have license details. Any personal data was masked before labeling. This paper contains no names / identifiers and no human-participant data collected. Question content will not be redistributed. We release code, IDs, source pointers of 958 labeled questions, SHA-256 hashes of the locked test files, labels, and per-question run decisions at \url{https://github.com/NCKH-LongT/chatbot-thutuc-g7/tree/main/Code}.}
 
 {Before publication, we revised five commit messages without altering the trees or dates. Old-to-new hashes mapping is in the repository.}
-{\emph{Use of AI.} The authors wrote the paper without generative AI assistance. Claude Opus 5.5 (Anthropic) was used only to build the software including rule layer and labeling support (Sect.~\ref{sec:data}). Authors take full responsibility for the content.}
+{\emph{Use of AI.} The authors wrote the paper without generative AI assistance. Claude Opus 5.5 (Anthropic) was used only to build the software including the rule layer, summarize the test results, and support labeling (Sect.~\ref{sec:data}), while Gemini 4 Argon helped with labeling. The authors take full responsibility for the content.}
 
 \begin{credits}
 \subsubsection{\ackname} 
