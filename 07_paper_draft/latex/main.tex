@@ -11,12 +11,11 @@
 \providecommand{\Description}[1]{}
 
 \newcommand{\BA}{\ensuremath{\mathrm{BA}_2}}
-\DeclareRobustCommand{\WRITE}[1]{\textbf{[WRITE #1]}}
 
 \begin{document}
 
-\title{Answer, Clarify or Refuse? A Locked, Run-Once Evaluation on Real Vietnamese Citizen Questions, with a Rule-Layer Case Study}
-\titlerunning{Answer, Clarify or Refuse on Real Citizen Questions}
+\title{Evaluating Three-Way scope decisions on questions from Vietnamese citizens under a Locked Protocol}
+\titlerunning{Three-Way Scope decisions on Citizen questions}
 
 \author{Hoang Nhan Trinh\inst{1}\orcidID{0009-0003-1961-9022} \and
 Viet Hung Nguyen\inst{1}\orcidID{0009-0006-5603-6143} \and
@@ -65,7 +64,7 @@ accuracy) by +0.167 [0.095, 0.240], mainly through accurate refusals.  End-to-en
 
 {There are three contributions: (1) A scope-decision protocol for applied assistants (Sect.~\ref{sec:protocol}), executed twice and documented per commit; reporting paired intervals, MDE, equivalence margins, and cost-weighted utility beyond significance testing; (2) a benchmark of 958 labeled real-citizen questions (Sect.~\ref{sec:data}) releasing IDs, source pointers, labels, and per-question decisions across 18 configurations; (3) Case study of an AI-assisted rule layer, compared with four alternatives (Sects.~\ref{sec:systems}--\ref{sec:discussion}).}
 
-\section{Related Work}
+\section{Related work}
 
 \subsubsection{Vietnamese Public-Service and Legal QA.}
 
@@ -77,11 +76,11 @@ accuracy) by +0.167 [0.095, 0.240], mainly through accurate refusals.  End-to-en
 {Abstaining cuts risk but also coverage~~\cite{elyaniv2010,geifman2017}
 , pricing errors against rejections~~\cite{chow1970}. Post hoc, maximum softmax probability~~\cite{hendrycks2017} flags errors and out-of-distribution inputs. QA calibrators guide abstention under domain shift~~\cite{kamath2020}, whereas out-of-scope queries trip intent classifiers~~\cite{larson2019}. LLM abstention has a survey~~\cite{wen2025}, and clarifying is a third path~~\cite{aliannejadi2019}.}
 
-\subsubsection{Who Decides.}
+\subsubsection{Who decides.}
 
 {The organizing question is who decides. In RAG~~\cite{lewis2020} and self-reflective RAG~~\cite{asai2024} the model decides; in guardrails, rails written by developers do~~\cite{rebedea2023}. Rules remain common in industrial information extraction~~\cite{chiticariu2013}. An e-government pipeline escalates to humans~~\cite{kaplan2026}, and a benchmark scores answering and admitting ignorance separately~~\cite{samson2026}.}
 
-\subsubsection{Evaluation Practice and LLM-Assisted Labels.}
+\subsubsection{Evaluation practice and LLM-Assisted labels.}
 
 {NLP has seen calls for preregistration~~\cite{vanmiltenburg2021}. One split can flip conclusions~~\cite{gorman2019}, tuning effort merits reporting~~\cite{dodge2019}, and adaptive holdout reuse overstates accuracy~~\cite{dwork2015}. LLMs can annotate better than crowd workers~~\cite{gilardi2023}, if validated~~\cite{pangakis2023,reiss2023}, a caveat for our LLM-assisted labels.}
 
@@ -95,7 +94,7 @@ accuracy) by +0.167 [0.095, 0.240], mainly through accurate refusals.  End-to-en
 
 {We retrieved 1517  administrative procedures from the National Public Service Portal (NPSP) ~\cite{dvcportal} on 13 October 2026 from public JSON endpoints. Access was made at two requests per second without logging in, and 542 were at commune level. Questions were gathered from public Hugging Face datasets Binh Dinh ~\cite{hfdvc} and the Ministry of Public Security (MPS) ~\cite{hfmps}. Personal data were masked, duplicates removed and sentences shorter than four words dropped. We also dropped 266 earlier to design clarification rules. The resulting dataset contained 1490 questions (753 from MPS, 737 from Binh Dinh). Sampling with a fixed seed produced a dev of 282 questions (55 answer, 7 clarify, 220 refuse). Sampling covered random and topical strata, with topical commune-level keywords fixed before inspecting outputs. Test set (T1) contained 348 samples (120 random samples, 228 topic samples). Then reduce T1 to 313 samples (59 answer, 6 clarify, 248 refuse). Only T1 random stratum has 102 questions (11 answer, 1 clarify, 90 refuse). This test set contained 11 near duplicate questions from dev and 35 meaning unclear without context or non-questions that were skipped. Finally, T2 drew upon 814 unused questions, excluding all dev and T1. T2 also excluding four format checking questions and 25 near-duplicates not sampled in dev or T1 sets. Shuffled once and frozen, 400 first label questions yielded 363 random samples after skipping 37 questions as truncated or unintelligible (21 answer, 7 clarify, 335 refuse) (92\% refusing).}
 
-\subsubsection{Labels and AI Involvement.}
+\subsubsection{Labels and AI involvement.}
 
 {With labeling tool for dev and T1 we used Claude Opus 5.5 (Anthropic) under the guideline. This assistant later wrote rule layer and ran two passes for dev labels. Disagreements were resolved using the assistant's proposals, subject to project lead approval. The assistant read all 348 questions while labeling. Labels were then SHA-256-hashed and committed before any changes. Rules were derived solely from dev and procedure and T1 was never reopened. In the second pass, Gemini 4 Argon (Google) proposed labels for 100 randomly sampled T1 questions. Each question was reviewed by the lead without knowledge of the initial labeling. He knew only the proportion of each class. There were 91 questions retained across both passes, of which 79 agreed. Cohen's $\kappa = 0.685$ ~\cite{cohen1960} with  95\% bootstrap [0.55--0.82]. In disagreement, we have 8 out of 12 between answer and clarify. For the binary refuse versus non-refuses distinction, 87 show agreement with Cohen's $\kappa =0.887$ [0.767, 0.974]. This agreement reflects two LLM-assisted annotation processes, not independent humans. First-pass labels were retained as the official labels. In T2, Gemini 4 Argon proposed labels and then lead checked one by one. Guideline in T2 introduced two additional clarifications (petitions to refuse and two closely equivalent procedures yield single answer label). Lead only knew rule types to be added, not the specific content or even the output on T2.}
 
@@ -127,9 +126,9 @@ U(c) = 100\,\frac{\mathit{correct} - c\cdot\mathit{wrong}}{n}, \qquad c^* = \fra
  
 {Wilson 95\% CI ~\cite{wilson1927} are reported. Pairwise comparisons are made using exact two-sided McNemar tests ~\cite{mcnemar1947,dietterich1998}. Exact McNemar tests were pre-specified only in round 2, round-1 tests were selected at reporting. We also calculate paired bootstrap 95\% percentile confidence intervals for $\Delta$ \BA{} $\Delta E2E$ and using 4000 bootstrap samples after both runs. No adjustment was made for multiple testing. Any confirmatory statements are based on those pre-specified. Minimum detectable effects (80\% power) ~\cite{connor1987} are also reported. The equivalence margin is the smallest value of $m$ for which the 90\% interval lies within $\pm m$. This corresponds to two one-sided tests at $\alpha=0.05$ ~\cite{schuirmann1987}. All values of $p$ should be reported to three decimal places for $p\geq0.001$, otherwise to one significant figure.}
 
-\section{Systems Under Test}\label{sec:systems}
+\section{Methodology and System Architectures}\label{sec:systems}
 
-\subsection{Base System and AI-Assisted Rule Layer}
+\subsection{Base Retrieval System and AI-Assisted Rule Layer (A, A2)}
 
 {The base system (Fig.~\ref{fig:pipeline}) makes no LLM-based decisions. Instead, it normalizes question segments and ranks procedures using syllable IDF weights, applying a 0.35 penalty for diacritics mismatch. A candidate procedure is accepted when score $\geq 0.55$ and coverage $\geq 0.5$. Coverage is the share of question-term weights covered by the procedure name. A policy module ensures alignment with the data. Answering is done automatically by pulling information from the procedures. LLM rewriting is disabled in all runs.}
 
@@ -165,7 +164,7 @@ override & 22 & \texttt{(?:giay to|ho so) (?:gi|nao|\ldots)}, \texttt{le phi}, \
 \end{tabular}
 \end{table}
 
-\subsection{Alternatives}
+\subsection{Baselines and Alternatives}
 
 \emph{Reranker (B).}
 {Candidates comprise the top-8 rule rankers and ten nearest neighbors on BGE-M3 ~\cite{chen2024m3}. The bge-reranker-v2-m3 scores them ~\cite{bgererank}. If we receive a score less than a certain threshold then we reject. If a competitor scores higher than our rule choice by a specified amount then they will be chosen instead.}
@@ -182,11 +181,11 @@ override & 22 & \texttt{(?:giay to|ho so) (?:gi|nao|\ldots)}, \texttt{le phi}, \
 
 \section{Results}\label{sec:results}
 
-\subsection{RQ1: Team-Written versus Real Questions}
+\subsection{RQ1: Synthetic vs. Real Questions}
 
 {The frozen base achieves 77.2\% behavior accuracy (95\% CI: 73--81\%) on 518 team-written questions. In real-world questions, accuracy falls to 56.0\% (50--62\%) on dev and 56.5\% (51--62\%) on T1. \BA{} drops from 0.852 to 0.636 and 0.647, respectively. This decline is mainly due to the difference in question type: must-refuse cases account for 78\% (dev), 79\% (T1) and 92\% (T2) compared with only 11\% of team-written questions. Top-1 accuracy on answerable questions drops from 274/381 (71.9\%) to 7/55 (12.7\%) on dev and 20/59 (33.9\%) on T1. Correct refusals cover only about half of these cases: 116/220 (dev) and 132/248 (T1), versus 52/58 (team-written). On team-written questions, the rule layer shows no net change (+4/-4). Thus, team-written questions hide both the problem and the remedy.}
 
-\subsection{RQ2: The Rule Layer under Declared Comparisons}
+\subsection{RQ2: Efficacy of the Rule Layer}
 
 {On T1 (Tables~\ref{tab:main} and~\ref{tab:paired}), the rule layer raises \BA{} from 0.647 to 0.814 ($\Delta$ \BA +0.167 [0.095, 0.240]). E2E increases from 19 to 35/59 ($p$ = 0.004). The number of correct refusals increases from 132 to 219/248, while correct answer decisions stay about the same (45 vs 44). The declared round-1 selection A+B over base gains +0.175 [0.104, 0.247]. Both random stratum and MPS rise from 0.512 to 0.859 and 0.618 to 0.875 respectively. Moreover, Binh Dinh also improves from 0.649 to 0.751, which touches zero with its interval [-0.001, 0.206]. Under second-pass labels (91 questions), 24 are gained and 1 is lost.}
 
@@ -234,14 +233,14 @@ T1 & Always refuse $\rightarrow$ R & d & $-0.011$ [$-0.082$, $+0.060$] & 0.071 &
 T1 & A $\rightarrow$ R (clar.\ as ref.) & d & $-0.087$ [$-0.176$, $-0.002$] & -- & $+31/{-39}$ (0.403) & -- \\
 \midrule
 T2 & A\,+\,B $\rightarrow$ A2\,+\,B & P & $+0.046$ [$-0.048$, $+0.143$] & 0.125 & $+3/{-3}$ (1.000) & 8$\rightarrow$10 ($+3/{-1}$, 0.625) \\
-\bfseries T2 & \bfseries Base $\rightarrow$ A2\,+\,B & \bfseries P & $+0.158$ [$+0.009$, $+0.304$] & -- & $+129/{-9}$ ($2\cdot10^{-28}$) & 5$\rightarrow$10 ($+7/{-2}$, 0.180) \\
+T2 & Base $\rightarrow$ A2\,+\,B & P & $+0.158$ [$+0.009$, $+0.304$] & -- & $+129/{-9}$ ($2\cdot10^{-28}$) & 5$\rightarrow$10 ($+7/{-2}$, 0.180) \\
 T2 & A2\,+\,B $\rightarrow$ R & P & $-0.316$ [$-0.427$, $-0.211$] & -- & $+19/{-122}$ ($1\cdot10^{-19}$) & 10$\rightarrow$4 ($+1/{-7}$, 0.070) \\
 T2 & Always refuse $\rightarrow$ R & d & $-0.087$ [$-0.175$, $+0.015$] & 0.163 & -- & -- \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{RQ3: Alternatives and What the Data Can Detect}
+\subsection{RQ3: Baselines and Detectability}
 
 {Alone, the reranker (0.692) and reader (0.785) scored below rule. Compared with A, the reader reduced E2E responses (35$\rightarrow$25); with McNemar ($p=0.064$), while bootstrap CI excluded zero ($\Delta=-0.170$ [$-0.333$, $-0.016$]), without asserting significance. Over rules, reranker gained one correct answer, while reader intent added correct refusal ($p$ = 0.017) but showed no detectable change in \BA{} (within $\pm 0.049$) or E2E. Name-only reached top \BA{} 0.834 (39 E2E responses), differing within $\pm 0.046$ in \BA{} (E2E $p$ = 0.388) and was not chosen by the selection rule.}
 
@@ -251,7 +250,7 @@ T2 & Always refuse $\rightarrow$ R & d & $-0.087$ [$-0.175$, $+0.015$] & 0.163 &
 
 {At 80\% power (59 answerable on T1 and 21 on T2), only large effects were detectable: $\Delta$ \BA{} = 0.04--0.13 (T1) and 0.13--0.21 (T2). T1 required a 10--15 question E2E difference, while T2 McNemar test required at least 6 discordant pairs in the same direction for $p<0.05$.}
 
-\subsection{RQ4: Deployment Utility}
+\subsection{RQ4: RQ4: Cost-Weighted Utility}
 
 {Answer precision was 45.5\% for A on T1 and 20.0\% for A2+B on T2. Among A's incorrect answers 29/42 (T1) and 34/37 (T2) were on must-refuse cases; the rule layer reduced these case from 114 to 29 and 153 to 34, respectively (Table~\ref{tab:confusion}). On T2, all configurations had $c^* \leq 0.25$, making always-refuse at least as useful when incorrect answers cost $\geq0.25$ of correct ones. Only A+C gives a value greater than 1 on T1 ($c^* = 1.39$), but in the random stratum it only achieves a value of 0.875, with 7 of 15 answers being correct. In the topical stratum, $c^*$ is achieved by A (1.0) and A+C (1.67) showing that utility depends on traffic composition. No configuration produced more correct than incorrect answers in random traffic. Without stored confidence scores, risk-coverage curves were unavailable, and the protocol prohibited reruns after test-set unblinding.}
 
